@@ -23,6 +23,7 @@ class Form extends Model
     protected function casts(): array
     {
         return [
+            'tenant_id'       => 'integer',
             'is_active'       => 'boolean',
             'is_landing_page' => 'boolean',
         ];

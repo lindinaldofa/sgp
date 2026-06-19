@@ -18,7 +18,7 @@ final class ProcessFormSubmissionAction
     {
         return DB::transaction(function () use ($form, $values, $request) {
             $contactData = $this->extractContactData($form, $values);
-            $contact     = $this->findOrCreateContact($form->tenant_id, $contactData);
+            $contact     = $this->findOrCreateContact((int) $form->tenant_id, $contactData);
 
             $submission = FormSubmission::create([
                 'form_id'      => $form->id,

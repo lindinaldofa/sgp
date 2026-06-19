@@ -1,0 +1,88 @@
+{
+    "name": "sgp/sistema-gestao-politica",
+    "description": "Sistema de Gestão Política — Contatos, CRM, Mandato e Comunicação",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "aws/aws-sdk-php": "^3.316",
+        "laravel/framework": "^12.0",
+        "laravel/sanctum": "^4.0",
+        "laravel/tinker": "^2.10",
+        "league/flysystem-aws-s3-v3": "^3.0",
+        "spatie/laravel-data": "^4.0",
+        "spatie/laravel-query-builder": "^6.0",
+        "spatie/laravel-activitylog": "^4.0",
+        "spatie/laravel-sluggable": "^3.6",
+        "symfony/uid": "^7.0"
+    },
+    "require-dev": {
+        "fakerphp/faker": "^1.23",
+        "laravel/pail": "^1.1",
+        "laravel/pint": "^1.13",
+        "laravel/sail": "^1.26",
+        "mockery/mockery": "^1.6",
+        "nunomaduro/collision": "^8.1",
+        "larastan/larastan": "^3.0",
+        "pestphp/pest": "^3.0",
+        "pestphp/pest-plugin-laravel": "^3.0",
+        "pestphp/pest-plugin-arch": "^3.0",
+        "pestphp/pest-plugin-mutate": "^3.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/",
+            "Database\\Factories\\": "database/factories/",
+            "Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "post-autoload-dump": [
+            "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
+            "@php artisan package:discover --ansi"
+        ],
+        "post-update-cmd": [
+            "@php artisan vendor:publish --tag=laravel-assets --ansi --force"
+        ],
+        "post-root-package-install": [
+            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
+        ],
+        "post-create-project-cmd": [
+            "@php artisan key:generate --ansi",
+            "@php artisan storage:link --ansi"
+        ],
+        "pint": "./vendor/bin/pint",
+        "pint:test": "./vendor/bin/pint --test",
+        "phpstan": "./vendor/bin/phpstan analyse --level=8",
+        "test": "./vendor/bin/pest --testsuite Architecture,Unit",
+        "test:feature": "./vendor/bin/pest --testsuite Feature",
+        "test:all": "./vendor/bin/pest",
+        "test:coverage": "./vendor/bin/pest --parallel --coverage --min=80",
+        "verify": [
+            "@pint:test",
+            "@phpstan",
+            "@test"
+        ]
+    },
+    "extra": {
+        "laravel": {
+            "dont-discover": []
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true,
+            "php-http/discovery": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

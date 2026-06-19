@@ -1,0 +1,91 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    container_name: sgp_app
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - .:/var/www/html
+      - ./docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini
+    environment:
+      - APP_ENV=local
+      - WWWUSER=${WWWUSER:-1000}
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - sgp_network
+
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: sgp_nginx
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8000}:80"
+    volumes:
+      - .:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app
+    networks:
+      - sgp_network
+
+  node:
+    image: node:20-alpine
+    container_name: sgp_node
+    working_dir: /var/www/html
+    volumes:
+      - .:/var/www/html
+    ports:
+      - "5173:5173"
+    command: sh -c "npm install && npm run dev -- --host"
+    depends_on:
+      - app
+    networks:
+      - sgp_network
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: sgp_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-sgp}
+      POSTGRES_USER: ${DB_USERNAME:-sgp}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - sgp_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: sgp_redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - sgp_network
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: sgp_mailpit
+    restart: unless-stopped
+    ports:
+      - "8025:8025"   # Web UI
+      - "1025:1025"   # SMTP
+    networks:
+      - sgp_network
+
+networks:
+  sgp_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:

@@ -1,0 +1,36 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    level: 5
+    paths:
+        - app
+
+    ignoreErrors:
+        - '#Access to an undefined property App\\Models\\[A-Za-z]+::\$#'
+        - '#Access to an undefined property App\\Http\\Resources\\[A-Za-z]+::\$#'
+        - '#Using nullsafe (method call|property access) .*(on non-nullable type|on left side of \?\? is unnecessary)#'
+        - '#Call to an undefined method Illuminate\\Database\\Eloquent\\Builder#'
+        - '#Cannot call method toIso8601String\(\) on string#'
+        - '#Cannot call method toDateString\(\) on string#'
+        - '#Cannot call method isPast\(\) on string#'
+        - '#Cannot call method format\(\) on string#'
+        - '#Cannot call method canManageFinancial\(\) on string#'
+        - '#Cannot call method label\(\) on string#'
+        - '#Cannot access property \$value on string#'
+        - '#Strict comparison using !== between#'
+        - '#Call to function abort_if#'
+        - '#Call to function in_array#'
+        - '#Match expression does not handle remaining values#'
+        - '#Match arm comparison between#'
+        - '#Parameter .* \$callback of method Illuminate#'
+
+    reportUnmatchedIgnoredErrors: false
+    checkModelProperties: false
+    checkPhpDocMissingReturn: false
+    checkUninitializedProperties: false
+    treatPhpDocTypesAsCertain: false
+    parseModelCastsMethod: true
+
+    excludePaths:
+        - app/Http/Middleware/TrustProxies.php (?)

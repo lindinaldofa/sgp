@@ -27,6 +27,7 @@ class ContactInteractionLog extends Model
     protected function casts(): array
     {
         return [
+            'tenant_id' => 'integer',
             'type' => InteractionType::class,
             'occurred_at' => 'datetime',
             'created_at' => 'datetime',

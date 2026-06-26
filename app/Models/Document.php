@@ -22,6 +22,7 @@ class Document extends Model
     ];
 
     protected $casts = [
+        'tenant_id' => 'integer',
         'size' => 'integer',
         'version' => 'integer',
         'is_template' => 'boolean',

@@ -26,6 +26,7 @@ class MessageTemplate extends Model
     protected function casts(): array
     {
         return [
+            'tenant_id' => 'integer',
             'channel' => CampaignChannel::class,
             'variables' => 'array',
             'is_system' => 'boolean',

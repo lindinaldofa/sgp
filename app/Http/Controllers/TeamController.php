@@ -35,7 +35,7 @@ class TeamController extends Controller
     public function store(StoreUserRequest $request, CreateUserAction $action): JsonResponse
     {
         $user = $action->execute(new CreateUserData(
-            tenantId: $this->typedUser($request)->tenant_id,
+            tenantId: (int) $this->typedUser($request)->tenant_id,
             name: $request->name,
             email: $request->email,
             role: $request->enum('role', UserRole::class) ?? throw new \UnexpectedValueException('Role is required'),

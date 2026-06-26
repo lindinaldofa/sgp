@@ -19,6 +19,7 @@ class BudgetAllowance extends Model
     ];
 
     protected $casts = [
+        'tenant_id' => 'integer',
         'total_monthly' => 'decimal:2',
         'year' => 'integer',
         'updated_at' => 'datetime',

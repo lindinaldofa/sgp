@@ -20,6 +20,7 @@ class ExpenseDocument extends Model
     ];
 
     protected $casts = [
+        'tenant_id' => 'integer',
         'created_at' => 'datetime',
     ];
 

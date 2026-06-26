@@ -27,6 +27,7 @@ class Proposition extends Model
     ];
 
     protected $casts = [
+        'tenant_id' => 'integer',
         'type' => PropositionType::class,
         'status' => PropositionStatus::class,
         'our_vote' => VoteChoice::class,

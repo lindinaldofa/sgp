@@ -40,6 +40,7 @@ class ServiceRequest extends Model
     protected function casts(): array
     {
         return [
+            'tenant_id' => 'integer',
             'status' => ServiceRequestStatus::class,
             'priority' => ServiceRequestPriority::class,
             'source' => ServiceRequestSource::class,

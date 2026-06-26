@@ -17,6 +17,10 @@ class DocumentFolder extends Model
         'tenant_id', 'name', 'parent_id', 'created_by', 'visibility',
     ];
 
+    protected $casts = [
+        'tenant_id' => 'integer',
+    ];
+
     /** @return BelongsTo<DocumentFolder, $this> */
     public function parent(): BelongsTo
     {

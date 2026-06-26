@@ -27,6 +27,7 @@ class AutomationRule extends Model
     protected function casts(): array
     {
         return [
+            'tenant_id' => 'integer',
             'channel' => CampaignChannel::class,
             'is_active' => 'boolean',
             'days_before' => 'integer',

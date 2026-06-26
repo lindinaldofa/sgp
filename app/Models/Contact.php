@@ -58,6 +58,7 @@ class Contact extends Model
     protected function casts(): array
     {
         return [
+            'tenant_id' => 'integer',
             'gender' => ContactGender::class,
             'type' => ContactType::class,
             'engagement_score' => 'integer',

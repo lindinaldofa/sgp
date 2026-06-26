@@ -27,6 +27,7 @@ class ContactImport extends Model
     protected function casts(): array
     {
         return [
+            'tenant_id' => 'integer',
             'error_log' => 'array',
             'started_at' => 'datetime',
             'completed_at' => 'datetime',

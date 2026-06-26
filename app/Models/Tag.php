@@ -18,6 +18,10 @@ class Tag extends Model
         'color',
     ];
 
+    protected $casts = [
+        'tenant_id' => 'integer',
+    ];
+
     /** @return BelongsToMany<Contact, $this> */
     public function contacts(): BelongsToMany
     {

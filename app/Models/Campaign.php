@@ -43,6 +43,7 @@ class Campaign extends Model
     protected function casts(): array
     {
         return [
+            'tenant_id' => 'integer',
             'channel' => CampaignChannel::class,
             'status' => CampaignStatus::class,
             'segment_filters' => 'array',

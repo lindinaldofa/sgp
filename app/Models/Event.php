@@ -26,6 +26,7 @@ class Event extends Model
     ];
 
     protected $casts = [
+        'tenant_id' => 'integer',
         'type' => EventType::class,
         'attendance' => AttendanceStatus::class,
         'is_online' => 'boolean',

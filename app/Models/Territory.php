@@ -26,6 +26,7 @@ class Territory extends Model
     protected function casts(): array
     {
         return [
+            'tenant_id' => 'integer',
             'geojson' => 'array',
             'is_active' => 'boolean',
         ];

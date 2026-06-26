@@ -19,6 +19,7 @@ class FormSubmission extends Model
     protected function casts(): array
     {
         return [
+            'tenant_id' => 'integer',
             'submitted_at' => 'datetime',
         ];
     }

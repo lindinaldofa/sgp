@@ -17,6 +17,7 @@ class InternalMessage extends Model
     ];
 
     protected $casts = [
+        'tenant_id' => 'integer',
         'is_pinned' => 'boolean',
     ];
 

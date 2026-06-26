@@ -20,6 +20,7 @@ class Donor extends Model
     ];
 
     protected $casts = [
+        'tenant_id' => 'integer',
         'amount' => 'decimal:2',
         'donated_at' => 'date',
         'receipt_issued' => 'boolean',

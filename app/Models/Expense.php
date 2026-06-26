@@ -24,6 +24,7 @@ class Expense extends Model
     ];
 
     protected $casts = [
+        'tenant_id' => 'integer',
         'category' => ExpenseCategory::class,
         'status' => ExpenseStatus::class,
         'amount' => 'decimal:2',

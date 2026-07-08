@@ -92,6 +92,7 @@ final class ProcessFormSubmissionAction
             'birth_date', 'gender', 'profession',
             'zip_code', 'address', 'address_number',
             'neighborhood', 'city', 'state',
+            'instagram', 'tiktok', 'facebook', 'twitter',
         ];
 
         $fillable = array_intersect_key($data, array_flip($contactFields));

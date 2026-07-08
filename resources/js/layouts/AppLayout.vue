@@ -86,7 +86,9 @@ async function handleLogout() {
           <span class="sgp-username">{{ auth.user?.name }}</span>
           <span class="sgp-userrole">{{ labelRole(auth.user?.role as string ?? 'readonly') }}</span>
         </div>
-        <div class="sgp-avatar">{{ auth.user?.name?.charAt(0)?.toUpperCase() ?? 'U' }}</div>
+        <router-link to="/profile" title="Meu perfil">
+          <div class="sgp-avatar">{{ auth.user?.name?.charAt(0)?.toUpperCase() ?? 'U' }}</div>
+        </router-link>
         <Button
           icon="pi pi-sign-out"
           text

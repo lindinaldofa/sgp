@@ -56,6 +56,8 @@ Route::middleware(['auth:sanctum', 'tenant.active'])->prefix('v1')->group(functi
     // Auth
     Route::post('auth/logout', [AuthController::class, 'logout']);
     Route::get('auth/me', [AuthController::class, 'me']);
+    Route::put('auth/profile', [AuthController::class, 'updateProfile']);
+    Route::put('auth/password', [AuthController::class, 'updatePassword']);
 
     // Módulo 10: Equipe e Acessos
     Route::prefix('team')->group(function () {

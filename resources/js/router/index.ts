@@ -36,6 +36,11 @@ const routes: RouteRecordRaw[] = [
         component: () => import('../pages/Dashboard.vue'),
         meta: { permission: 'dashboard' as AppPermission },
       },
+      {
+        path: 'profile',
+        name: 'profile',
+        component: () => import('../pages/Profile.vue'),
+      },
       // Contacts
       {
         path: 'contacts',

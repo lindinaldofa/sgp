@@ -53,6 +53,38 @@ class AuthController extends Controller
         return response()->json(new UserResource($this->typedUser($request)->load('tenant')));
     }
 
+    public function updateProfile(Request $request): JsonResponse
+    {
+        $request->validate([
+            'name'  => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email,' . $this->typedUser($request)->id],
+            'phone' => ['nullable', 'string', 'max:30'],
+        ]);
+
+        $user = $this->typedUser($request);
+        $user->update($request->only('name', 'email', 'phone'));
+
+        return response()->json(new UserResource($user->load('tenant')));
+    }
+
+    public function updatePassword(Request $request): JsonResponse
+    {
+        $request->validate([
+            'current_password' => ['required', 'string'],
+            'password'         => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $user = $this->typedUser($request);
+
+        if (! Hash::check($request->current_password, $user->password)) {
+            return response()->json(['message' => 'Senha atual incorreta.'], 422);
+        }
+
+        $user->update(['password' => $request->password]);
+
+        return response()->json(['message' => 'Senha atualizada com sucesso.']);
+    }
+
     public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
     {
         $status = Password::sendResetLink($request->only('email'));

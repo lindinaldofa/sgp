@@ -16,9 +16,9 @@ class IntegrationSourceResource extends JsonResource
             'ulid' => $this->ulid,
             'name' => $this->name,
             'tag' => new TagResource($this->whenLoaded('tag')),
-            'is_active' => $this->is_active,
-            'last_used_at' => $this->last_used_at,
-            'created_at' => $this->created_at,
+            'isActive' => $this->is_active,
+            'lastUsedAt' => $this->last_used_at?->toIso8601String(),
+            'createdAt' => $this->created_at?->toIso8601String(),
         ];
     }
 }

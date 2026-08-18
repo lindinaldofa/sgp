@@ -1,14 +1,17 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import api from '../utils/axios'
+import type { Tag as ContactTag } from '../types'
 
 const router = useRouter()
 const toast = useToast()
 
 const currentStep = ref(0)
 const loading = ref(false)
+
+const availableTags = ref<ContactTag[]>([])
 
 // Step 1: Channel & Name
 const step1 = ref({
@@ -26,7 +29,7 @@ const step2 = ref({
 
 // Step 3: Audience & Schedule
 const step3 = ref({
-  audience_type: 'all' as 'all' | 'tag' | 'type' | 'custom',
+  audience_type: 'all' as 'all' | 'tag' | 'type',
   tag_ids: [] as number[],
   contact_types: [] as string[],
   scheduled_at: null as string | null,
@@ -53,6 +56,17 @@ const contactTypeOptions = [
 ]
 
 const steps = ['Canal e nome', 'Conteúdo', 'Audiência e envio']
+
+async function fetchTags() {
+  try {
+    const { data } = await api.get<{ data: ContactTag[] }>('/api/v1/tags')
+    availableTags.value = data.data
+  } catch {
+    toast.add({ severity: 'error', summary: 'Erro', detail: 'Falha ao carregar tags', life: 3000 })
+  }
+}
+
+onMounted(fetchTags)
 
 const canProceedStep1 = computed(() => step1.value.name.trim().length > 0)
 const canProceedStep2 = computed(() => {
@@ -81,19 +95,38 @@ function prevStep() {
 async function handleSubmit() {
   loading.value = true
   try {
+    // segment_filters é um snapshot livre: o backend re-executa esses filtros
+    // no momento do envio para montar a lista atual de destinatários.
+    const segmentFilters = {
+      audience_type: step3.value.audience_type,
+      tag_ids: step3.value.audience_type === 'tag' ? step3.value.tag_ids : undefined,
+      contact_types: step3.value.audience_type === 'type' ? step3.value.contact_types : undefined,
+    }
+
     const payload = {
       name: step1.value.name,
       channel: step1.value.channel,
       subject: step1.value.channel === 'email' ? step2.value.subject : undefined,
       body_text: step2.value.body_text,
       body_html: step1.value.channel === 'email' ? step2.value.body_html || undefined : undefined,
-      audience_type: step3.value.audience_type,
-      tag_ids: step3.value.audience_type === 'tag' ? step3.value.tag_ids : undefined,
-      contact_types: step3.value.audience_type === 'type' ? step3.value.contact_types : undefined,
-      scheduled_at: step3.value.scheduled_at || undefined,
+      segment_filters: segmentFilters,
     }
-    await api.post('/api/v1/campaigns', payload)
-    toast.add({ severity: 'success', summary: 'Sucesso', detail: 'Campanha criada com sucesso', life: 3000 })
+
+    const { data } = await api.post<{ data: { id: string } }>('/api/v1/campaigns', payload)
+    const campaign = data.data
+
+    if (step3.value.scheduled_at) {
+      await api.post(`/api/v1/campaigns/${campaign.id}/schedule`, {
+        scheduled_at: step3.value.scheduled_at,
+      })
+    }
+
+    toast.add({
+      severity: 'success',
+      summary: 'Sucesso',
+      detail: step3.value.scheduled_at ? 'Campanha criada e agendada com sucesso' : 'Campanha criada como rascunho',
+      life: 3000,
+    })
     await router.push('/campaigns')
   } catch (e) {
     const msg = (e as { response?: { data?: { message?: string } } }).response?.data?.message || 'Erro ao criar campanha'
@@ -254,6 +287,20 @@ async function handleSubmit() {
                 option-value="value"
                 class="w-full"
               />
+            </div>
+
+            <div v-if="step3.audience_type === 'tag'" class="flex flex-col gap-1">
+              <label class="text-sm font-medium text-surface-700">Tags</label>
+              <MultiSelect
+                v-model="step3.tag_ids"
+                :options="availableTags"
+                option-label="name"
+                option-value="id"
+                placeholder="Selecionar tags"
+                filter
+                class="w-full"
+              />
+              <p v-if="!availableTags.length" class="text-xs text-surface-400">Nenhuma tag cadastrada ainda.</p>
             </div>
 
             <div v-if="step3.audience_type === 'type'" class="flex flex-col gap-1">

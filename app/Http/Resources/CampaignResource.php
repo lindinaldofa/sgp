@@ -20,23 +20,25 @@ class CampaignResource extends JsonResource
             : 0.0;
 
         return [
-            'id' => $this->id,
-            'ulid' => $this->ulid,
+            'id' => $this->ulid,
             'name' => $this->name,
             'channel' => $this->channel?->value,
-            'channel_label' => $this->channel?->label(),
+            'channelLabel' => $this->channel?->label(),
             'status' => $this->status?->value,
-            'status_label' => $this->status?->label(),
+            'statusLabel' => $this->status?->label(),
             'subject' => $this->subject,
-            'total_recipients' => (int) $this->total_recipients,
-            'sent_count' => $sentCount,
-            'delivered_count' => (int) $this->delivered_count,
-            'opened_count' => $openedCount,
-            'failed_count' => (int) $this->failed_count,
-            'open_rate' => $openRate,
-            'scheduled_at' => $this->scheduled_at?->toIso8601String(),
-            'completed_at' => $this->completed_at?->toIso8601String(),
-            'recipients_count' => $this->whenCounted('recipients'),
+            'totalRecipients' => (int) $this->total_recipients,
+            'sentCount' => $sentCount,
+            'deliveredCount' => (int) $this->delivered_count,
+            'openedCount' => $openedCount,
+            'clickedCount' => (int) $this->clicked_count,
+            'failedCount' => (int) $this->failed_count,
+            'openRate' => $openRate,
+            'scheduledAt' => $this->scheduled_at?->toIso8601String(),
+            'startedAt' => $this->started_at?->toIso8601String(),
+            'completedAt' => $this->completed_at?->toIso8601String(),
+            'createdAt' => $this->created_at?->toIso8601String(),
+            'recipientsCount' => $this->whenCounted('recipients'),
         ];
     }
 }

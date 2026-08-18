@@ -344,3 +344,25 @@ export interface FormSubmission {
   contact?: { id: number; ulid: string; name: string }
   values?: { fieldName: string; fieldLabel: string; value: string | null }[]
 }
+
+export interface IntegrationSource {
+  ulid: string
+  name: string
+  tag: Tag
+  isActive: boolean
+  lastUsedAt: string | null
+  createdAt: string
+}
+
+export interface CommunicationConfig {
+  aws_region: string | null
+  ses_from_email: string | null
+  ses_from_name: string | null
+  sns_region: string | null
+  sns_sms_sender_id: string | null
+  openwa_base_url: string | null
+  openwa_session_id: string | null
+  daily_email_limit: number
+  daily_sms_limit: number
+  daily_whatsapp_limit: number
+}

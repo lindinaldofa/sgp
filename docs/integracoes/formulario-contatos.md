@@ -37,7 +37,9 @@ experiência e para garantir a deduplicação (ver seção 4).
 ## 3. Pré-requisito: obter o token de integração
 
 Antes de codificar o formulário, um administrador do SGP precisa criar uma **fonte de
-integração**, que gera o token e a tag de origem associada:
+integração**, que gera o token e a tag de origem associada. Isso pode ser feito pela
+própria interface do SGP, em **Configurações → Integrações → Nova fonte** (o token só é
+exibido uma vez, na hora da criação) — ou via API diretamente:
 
 ```
 POST {SGP_BASE_URL}/api/v1/integration-sources

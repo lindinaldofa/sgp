@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Actions\ResolveCampaignRecipientsAction;
 use App\Enums\CampaignChannel;
 use App\Enums\CampaignStatus;
 use App\Http\Resources\CampaignRecipientResource;
@@ -94,7 +95,7 @@ class CampaignController extends Controller
         return response()->json(null, 204);
     }
 
-    public function send(Request $request, string $ulid): JsonResponse
+    public function send(Request $request, string $ulid, ResolveCampaignRecipientsAction $resolveRecipients): JsonResponse
     {
         $campaign = Campaign::where('ulid', $ulid)->firstOrFail();
 
@@ -104,9 +105,15 @@ class CampaignController extends Controller
             'Campaign cannot be sent in its current status.',
         );
 
-        $campaign->update(['status' => CampaignStatus::Sending]);
+        $resolveRecipients->execute($campaign);
 
         $recipientIds = $campaign->recipients()->pluck('id')->toArray();
+
+        if (empty($recipientIds)) {
+            return response()->json(['message' => 'Nenhum destinatário elegível foi encontrado para esta campanha.'], 422);
+        }
+
+        $campaign->update(['status' => CampaignStatus::Sending, 'started_at' => now()]);
 
         match ($campaign->channel) {
             CampaignChannel::Email => SendEmailCampaignChunkJob::dispatch($campaign->id, $recipientIds),

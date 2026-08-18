@@ -3,6 +3,11 @@ import { ref, onMounted } from 'vue'
 import { useToast } from 'primevue/usetoast'
 import { useAuthStore } from '../../stores/useAuthStore'
 import api from '../../utils/axios'
+import CommunicationSettings from './CommunicationSettings.vue'
+import IntegrationSources from './IntegrationSources.vue'
+
+const activeTab = ref(0)
+const tabs = ['Organização', 'Comunicação', 'Integrações']
 
 interface TenantSettings {
   name: string
@@ -143,7 +148,33 @@ onMounted(fetchSettings)
       <p class="text-sm text-surface-500 mt-1">Configurações da organização</p>
     </div>
 
-    <div v-if="loading" class="flex justify-center py-20">
+    <!-- Tabs -->
+    <div class="flex gap-0 border-b border-surface-200 mb-6 max-w-3xl">
+      <button
+        v-for="(tab, i) in tabs"
+        :key="tab"
+        class="px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px"
+        :class="activeTab === i
+          ? 'border-primary text-primary'
+          : 'border-transparent text-surface-500 hover:text-surface-700'"
+        @click="activeTab = i"
+      >
+        {{ tab }}
+      </button>
+    </div>
+
+    <!-- Comunicação -->
+    <div v-if="activeTab === 1" class="max-w-3xl">
+      <CommunicationSettings />
+    </div>
+
+    <!-- Integrações -->
+    <div v-else-if="activeTab === 2" class="max-w-3xl">
+      <IntegrationSources />
+    </div>
+
+    <!-- Organização -->
+    <div v-else-if="loading" class="flex justify-center py-20">
       <ProgressSpinner />
     </div>
 

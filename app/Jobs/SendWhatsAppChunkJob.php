@@ -6,7 +6,9 @@ namespace App\Jobs;
 
 use App\Models\Campaign;
 use App\Models\CampaignRecipient;
-use App\Services\WhatsAppCloudApiService;
+use App\Models\Contact;
+use App\Services\OpenWaService;
+use App\Services\TemplateVariableResolverService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -23,13 +25,22 @@ class SendWhatsAppChunkJob implements ShouldQueue
         private readonly array $recipientIds,
     ) {}
 
-    public function handle(WhatsAppCloudApiService $whatsapp): void
+    public function handle(OpenWaService $whatsapp, TemplateVariableResolverService $resolver): void
     {
-        $campaign = Campaign::findOrFail($this->campaignId);
+        $campaign = Campaign::with('tenant')->findOrFail($this->campaignId);
+        $tenant = $campaign->tenant ?? throw new \RuntimeException("Campaign {$campaign->id} has no tenant");
         $recipients = CampaignRecipient::with('contact')->findMany($this->recipientIds);
 
         foreach ($recipients as $recipient) {
             $contact = $recipient->contact;
+
+            if (! $contact instanceof Contact) {
+                $recipient->update(['status' => 'failed', 'error_message' => 'Contact not found']);
+                $campaign->increment('failed_count');
+
+                continue;
+            }
+
             $phone = $contact->whatsapp ?? $contact->phone ?? '';
 
             if (! $phone) {
@@ -39,19 +50,15 @@ class SendWhatsAppChunkJob implements ShouldQueue
                 continue;
             }
 
-            $success = $whatsapp->sendTemplate(
-                $phone,
-                $campaign->whatsapp_template_name ?? 'hello_world',
-                $campaign->tenant_id,
-                [],
-                $campaign->whatsapp_template_lang,
-            );
+            $message = $resolver->resolve($campaign->body_text ?? '', $contact, $tenant);
+
+            $success = $whatsapp->sendText($phone, $message, (int) $campaign->tenant_id);
 
             if ($success) {
                 $recipient->update(['status' => 'sent', 'sent_at' => now()]);
                 $campaign->increment('sent_count');
             } else {
-                $recipient->update(['status' => 'failed', 'error_message' => 'WhatsApp API error']);
+                $recipient->update(['status' => 'failed', 'error_message' => 'OpenWA send failed']);
                 $campaign->increment('failed_count');
             }
         }

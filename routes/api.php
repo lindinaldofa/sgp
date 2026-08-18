@@ -18,16 +18,18 @@ use App\Http\Controllers\DocumentFolderController;
 use App\Http\Controllers\DonorController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\ExpenseController;
+use App\Http\Controllers\FormController;
 use App\Http\Controllers\GeoController;
+use App\Http\Controllers\IntegrationContactController;
+use App\Http\Controllers\IntegrationSourceController;
 use App\Http\Controllers\MessageTemplateController;
 use App\Http\Controllers\PropositionController;
+use App\Http\Controllers\PublicFormController;
 use App\Http\Controllers\ServiceCategoryController;
 use App\Http\Controllers\ServiceRequestController;
 use App\Http\Controllers\TagController;
 use App\Http\Controllers\TeamController;
 use App\Http\Controllers\TerritoryController;
-use App\Http\Controllers\FormController;
-use App\Http\Controllers\PublicFormController;
 use App\Http\Controllers\WebhookController;
 use Illuminate\Support\Facades\Route;
 
@@ -49,6 +51,9 @@ Route::prefix('webhooks')->group(function () {
     Route::post('ses', [WebhookController::class, 'ses']);
     Route::post('whatsapp', [WebhookController::class, 'whatsapp']);
 });
+
+// ── Integrações externas (sem auth Sanctum, autenticado via token) ─
+Route::middleware('throttle:60,1')->post('v1/integrations/contacts', [IntegrationContactController::class, 'store']);
 
 // ── Rotas autenticadas ──────────────────────────────────────────
 Route::middleware(['auth:sanctum', 'tenant.active'])->prefix('v1')->group(function () {
@@ -95,6 +100,15 @@ Route::middleware(['auth:sanctum', 'tenant.active'])->prefix('v1')->group(functi
 
     // Tags
     Route::apiResource('tags', TagController::class)->except(['show']);
+
+    // Fontes de integração (apps externos que criam contatos)
+    Route::prefix('integration-sources')->group(function () {
+        Route::get('/', [IntegrationSourceController::class, 'index']);
+        Route::post('/', [IntegrationSourceController::class, 'store']);
+        Route::put('{ulid}', [IntegrationSourceController::class, 'update']);
+        Route::delete('{ulid}', [IntegrationSourceController::class, 'destroy']);
+        Route::post('{ulid}/regenerate-token', [IntegrationSourceController::class, 'regenerateToken']);
+    });
 
     // Módulo 02: Geolocalização
     Route::prefix('geo')->group(function () {

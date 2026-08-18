@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Enums\CampaignChannel;
 use App\Models\CommunicationConfig;
+use App\Services\OpenWaService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\Rule;
 
 class CommunicationConfigController extends Controller
 {
@@ -20,18 +24,17 @@ class CommunicationConfigController extends Controller
     public function update(Request $request): JsonResponse
     {
         $data = $request->validate([
+            'aws_region' => ['nullable', 'string', 'max:20'],
+            'ses_from_email' => ['nullable', 'email', 'max:255'],
+            'ses_from_name' => ['nullable', 'string', 'max:255'],
+            'sns_region' => ['nullable', 'string', 'max:20'],
+            'sns_sms_sender_id' => ['nullable', 'string', 'max:20'],
+            'openwa_base_url' => ['nullable', 'url', 'max:500'],
+            'openwa_api_key' => ['nullable', 'string'],
+            'openwa_session_id' => ['nullable', 'string', 'max:100'],
             'daily_email_limit' => ['nullable', 'integer', 'min:0'],
             'daily_sms_limit' => ['nullable', 'integer', 'min:0'],
             'daily_whatsapp_limit' => ['nullable', 'integer', 'min:0'],
-            'smtp_host' => ['nullable', 'string', 'max:255'],
-            'smtp_port' => ['nullable', 'integer'],
-            'smtp_username' => ['nullable', 'string', 'max:255'],
-            'smtp_password' => ['nullable', 'string', 'max:255'],
-            'smtp_from_email' => ['nullable', 'email', 'max:255'],
-            'smtp_from_name' => ['nullable', 'string', 'max:255'],
-            'sms_api_key' => ['nullable', 'string', 'max:255'],
-            'whatsapp_api_key' => ['nullable', 'string', 'max:255'],
-            'whatsapp_phone_id' => ['nullable', 'string', 'max:255'],
         ]);
 
         $config = CommunicationConfig::updateOrCreate(
@@ -40,5 +43,56 @@ class CommunicationConfigController extends Controller
         );
 
         return response()->json($config);
+    }
+
+    public function test(Request $request, OpenWaService $whatsapp): JsonResponse
+    {
+        $data = $request->validate([
+            'channel' => ['required', Rule::enum(CampaignChannel::class)],
+            'to' => ['required', 'string', 'max:255'],
+        ]);
+
+        $tenantId = $this->typedUser($request)->tenant_id;
+
+        if (CampaignChannel::from($data['channel']) === CampaignChannel::Sms) {
+            return response()->json(['message' => 'Teste de SMS ainda não é suportado por este endpoint.'], 422);
+        }
+
+        $success = match (CampaignChannel::from($data['channel'])) {
+            CampaignChannel::WhatsApp => $whatsapp->sendText(
+                $data['to'],
+                'Mensagem de teste do SGP — sua integração com o OpenWA está funcionando.',
+                $tenantId,
+            ),
+            CampaignChannel::Email => $this->sendTestEmail($tenantId, $data['to']),
+            CampaignChannel::Sms => false,
+        };
+
+        if (! $success) {
+            return response()->json(['message' => 'Falha ao enviar mensagem de teste. Verifique as configurações.'], 422);
+        }
+
+        return response()->json(['message' => 'Mensagem de teste enviada com sucesso.']);
+    }
+
+    private function sendTestEmail(int $tenantId, string $to): bool
+    {
+        $config = CommunicationConfig::where('tenant_id', $tenantId)->first();
+
+        if (! $config?->ses_from_email) {
+            return false;
+        }
+
+        try {
+            Mail::html('Este é um e-mail de teste do SGP para validar sua integração com o Amazon SES.', function ($message) use ($to, $config) {
+                $message->to($to)
+                    ->subject('SGP — Teste de configuração de e-mail')
+                    ->from($config->ses_from_email, $config->ses_from_name);
+            });
+
+            return true;
+        } catch (\Throwable) {
+            return false;
+        }
     }
 }

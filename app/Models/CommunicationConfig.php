@@ -13,6 +13,10 @@ class CommunicationConfig extends Model
 
     protected $guarded = [];
 
+    protected $hidden = [
+        'openwa_api_key',
+    ];
+
     protected function casts(): array
     {
         return [

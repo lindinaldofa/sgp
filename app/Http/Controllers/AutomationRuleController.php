@@ -26,6 +26,7 @@ class AutomationRuleController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'trigger' => ['required', 'string', 'max:255'],
+            'tag_id' => ['nullable', 'integer', 'exists:tags,id'],
             'channel' => ['required', Rule::enum(CampaignChannel::class)],
             'template_id' => ['required', 'integer', 'exists:message_templates,id'],
             'is_active' => ['boolean'],
@@ -45,6 +46,7 @@ class AutomationRuleController extends Controller
         $data = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'trigger' => ['sometimes', 'required', 'string', 'max:255'],
+            'tag_id' => ['nullable', 'integer', 'exists:tags,id'],
             'channel' => ['sometimes', 'required', Rule::enum(CampaignChannel::class)],
             'template_id' => ['sometimes', 'required', 'integer', 'exists:message_templates,id'],
             'is_active' => ['boolean'],

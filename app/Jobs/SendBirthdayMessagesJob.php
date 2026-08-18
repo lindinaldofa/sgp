@@ -6,7 +6,8 @@ namespace App\Jobs;
 
 use App\Models\AutomationRule;
 use App\Models\Contact;
-use App\Services\WhatsAppCloudApiService;
+use App\Services\OpenWaService;
+use App\Services\TemplateVariableResolverService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -18,16 +19,20 @@ class SendBirthdayMessagesJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public function handle(WhatsAppCloudApiService $whatsapp): void
+    public function handle(OpenWaService $whatsapp, TemplateVariableResolverService $resolver): void
     {
         $today = now();
 
         $rules = AutomationRule::where('trigger', 'birthday')
             ->where('is_active', true)
-            ->with('template')
+            ->with(['template', 'tenant'])
             ->get();
 
         foreach ($rules as $rule) {
+            if (! $rule->template || ! $rule->tenant) {
+                continue;
+            }
+
             $contacts = Contact::where('tenant_id', $rule->tenant_id)
                 ->where('lgpd_consent', true)
                 ->whereMonth('birth_date', $today->month)
@@ -36,11 +41,14 @@ class SendBirthdayMessagesJob implements ShouldQueue
 
             foreach ($contacts as $contact) {
                 try {
-                    $whatsapp->sendTemplate(
-                        $contact->whatsapp ?? $contact->phone ?? '',
-                        $rule->template->name ?? 'birthday',
-                        $rule->tenant_id,
-                    );
+                    $phone = $contact->whatsapp ?? $contact->phone ?? '';
+                    if (! $phone) {
+                        continue;
+                    }
+
+                    $message = $resolver->resolve($rule->template->body_text ?? '', $contact, $rule->tenant);
+
+                    $whatsapp->sendText($phone, $message, (int) $rule->tenant_id);
                 } catch (\Throwable $e) {
                     Log::warning("Birthday message failed for contact {$contact->id}: ".$e->getMessage());
                 }

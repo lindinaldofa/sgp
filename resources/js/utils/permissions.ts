@@ -7,6 +7,7 @@ export type AppPermission =
   | 'events'
   | 'expenses'
   | 'documents'
+  | 'campaigns'
   | 'team'
   | 'settings'
   | 'audit-logs'
@@ -14,7 +15,7 @@ export type AppPermission =
 // null = acesso total
 const ROLE_PERMISSIONS: Record<string, AppPermission[] | null> = {
   admin:     null,
-  manager:   ['dashboard', 'contacts', 'forms', 'service-requests', 'propositions', 'events', 'expenses', 'documents', 'team', 'settings'],
+  manager:   ['dashboard', 'contacts', 'forms', 'service-requests', 'propositions', 'events', 'expenses', 'documents', 'campaigns', 'team', 'settings'],
   assessor:  ['dashboard', 'contacts', 'forms', 'service-requests', 'propositions', 'events', 'documents'],
   financial: ['dashboard', 'contacts', 'forms', 'service-requests', 'propositions', 'events', 'documents', 'expenses'],
   leader:    ['events', 'propositions'],

@@ -19,6 +19,7 @@ const allNavItems = [
   { label: 'Agenda',       icon: 'pi pi-calendar',  to: '/events',           permission: 'events'           as AppPermission },
   { label: 'Financeiro',   icon: 'pi pi-wallet',    to: '/expenses',         permission: 'expenses'         as AppPermission },
   { label: 'Documentos',   icon: 'pi pi-folder',    to: '/documents',        permission: 'documents'        as AppPermission },
+  { label: 'Campanhas',    icon: 'pi pi-send',      to: '/campaigns',        permission: 'campaigns'        as AppPermission },
   { label: 'Equipe',       icon: 'pi pi-user-plus', to: '/team',             permission: 'team'             as AppPermission },
 ]
 

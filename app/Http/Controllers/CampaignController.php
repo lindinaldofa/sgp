@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Actions\ResolveCampaignRecipientsAction;
 use App\Enums\CampaignChannel;
 use App\Enums\CampaignStatus;
+use App\Enums\WhatsAppMessageType;
 use App\Http\Resources\CampaignRecipientResource;
 use App\Http\Resources\CampaignResource;
 use App\Jobs\SendEmailCampaignChunkJob;
@@ -17,6 +18,7 @@ use App\Models\CampaignRecipient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class CampaignController extends Controller
@@ -40,8 +42,7 @@ class CampaignController extends Controller
             'subject' => ['nullable', 'string', 'max:255'],
             'body_html' => ['nullable', 'string'],
             'body_text' => ['nullable', 'string'],
-            'whatsapp_template_name' => ['nullable', 'string'],
-            'whatsapp_template_lang' => ['nullable', 'string'],
+            'whatsapp_message_type' => ['nullable', Rule::enum(WhatsAppMessageType::class)],
             'segment_filters' => ['nullable', 'array'],
         ]);
 
@@ -74,8 +75,7 @@ class CampaignController extends Controller
             'subject' => ['nullable', 'string', 'max:255'],
             'body_html' => ['nullable', 'string'],
             'body_text' => ['nullable', 'string'],
-            'whatsapp_template_name' => ['nullable', 'string'],
-            'whatsapp_template_lang' => ['nullable', 'string'],
+            'whatsapp_message_type' => ['nullable', Rule::enum(WhatsAppMessageType::class)],
             'segment_filters' => ['nullable', 'array'],
         ]);
 
@@ -84,11 +84,35 @@ class CampaignController extends Controller
         return new CampaignResource($campaign->fresh());
     }
 
+    public function uploadMedia(Request $request, string $ulid): JsonResponse
+    {
+        $campaign = Campaign::where('ulid', $ulid)->firstOrFail();
+
+        abort_if($campaign->status !== CampaignStatus::Draft, 422, 'Only draft campaigns can be edited.');
+
+        $request->validate([
+            'media' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,mp4,3gp,mov,mp3,ogg,m4a,pdf,doc,docx,xls,xlsx', 'max:51200'],
+        ]);
+
+        if ($campaign->media_path) {
+            Storage::disk('public')->delete($campaign->media_path);
+        }
+
+        $path = $request->file('media')->store("campaigns/{$campaign->id}", 'public');
+        $campaign->update(['media_path' => $path]);
+
+        return response()->json(['mediaUrl' => Storage::url($path)]);
+    }
+
     public function destroy(string $ulid): JsonResponse
     {
         $campaign = Campaign::where('ulid', $ulid)->firstOrFail();
 
         abort_if($campaign->status !== CampaignStatus::Draft, 422, 'Only draft campaigns can be deleted.');
+
+        if ($campaign->media_path) {
+            Storage::disk('public')->delete($campaign->media_path);
+        }
 
         $campaign->delete();
 

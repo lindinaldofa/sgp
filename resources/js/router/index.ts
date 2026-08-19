@@ -114,6 +114,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import('../pages/CampaignCreate.vue'),
         meta: { permission: 'campaigns' as AppPermission },
       },
+      {
+        path: 'campaigns/:ulid/edit',
+        name: 'campaigns-edit',
+        component: () => import('../pages/CampaignCreate.vue'),
+        meta: { permission: 'campaigns' as AppPermission },
+      },
       // Team
       {
         path: 'team',

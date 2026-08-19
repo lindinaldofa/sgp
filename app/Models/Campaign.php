@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\CampaignChannel;
 use App\Enums\CampaignStatus;
+use App\Enums\WhatsAppMessageType;
 use App\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -26,8 +27,8 @@ class Campaign extends Model
         'subject',
         'body_html',
         'body_text',
-        'whatsapp_template_name',
-        'whatsapp_template_lang',
+        'whatsapp_message_type',
+        'media_path',
         'segment_filters',
         'total_recipients',
         'sent_count',
@@ -46,6 +47,7 @@ class Campaign extends Model
             'tenant_id' => 'integer',
             'channel' => CampaignChannel::class,
             'status' => CampaignStatus::class,
+            'whatsapp_message_type' => WhatsAppMessageType::class,
             'segment_filters' => 'array',
             'scheduled_at' => 'datetime',
             'started_at' => 'datetime',

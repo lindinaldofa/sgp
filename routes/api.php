@@ -149,6 +149,7 @@ Route::middleware(['auth:sanctum', 'tenant.active'])->prefix('v1')->group(functi
         Route::get('{ulid}', [CampaignController::class, 'show']);
         Route::put('{ulid}', [CampaignController::class, 'update']);
         Route::delete('{ulid}', [CampaignController::class, 'destroy']);
+        Route::post('{ulid}/media', [CampaignController::class, 'uploadMedia']);
         Route::post('{ulid}/send', [CampaignController::class, 'send']);
         Route::post('{ulid}/schedule', [CampaignController::class, 'schedule']);
         Route::post('{ulid}/cancel', [CampaignController::class, 'cancel']);

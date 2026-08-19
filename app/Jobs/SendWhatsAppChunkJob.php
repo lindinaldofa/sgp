@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
+use App\Enums\WhatsAppMessageType;
 use App\Models\Campaign;
 use App\Models\CampaignRecipient;
 use App\Models\Contact;
@@ -14,6 +15,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Storage;
 
 class SendWhatsAppChunkJob implements ShouldQueue
 {
@@ -51,8 +53,20 @@ class SendWhatsAppChunkJob implements ShouldQueue
             }
 
             $message = $resolver->resolve($campaign->body_text ?? '', $contact, $tenant);
+            $messageType = $campaign->whatsapp_message_type ?? WhatsAppMessageType::Text;
 
-            $success = $whatsapp->sendText($phone, $message, (int) $campaign->tenant_id);
+            if ($messageType === WhatsAppMessageType::Text || ! $campaign->media_path) {
+                $success = $whatsapp->sendText($phone, $message, (int) $campaign->tenant_id);
+            } else {
+                $success = $whatsapp->sendMedia(
+                    $messageType,
+                    $phone,
+                    url(Storage::url($campaign->media_path)),
+                    (int) $campaign->tenant_id,
+                    caption: $message !== '' ? $message : null,
+                    filename: basename($campaign->media_path),
+                );
+            }
 
             if ($success) {
                 $recipient->update(['status' => 'sent', 'sent_at' => now()]);

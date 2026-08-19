@@ -1,17 +1,30 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import api from '../utils/axios'
-import type { Tag as ContactTag } from '../types'
+import type { Tag as ContactTag, Campaign } from '../types'
+import WhatsAppTextToolbar from '../components/common/WhatsAppTextToolbar.vue'
 
 const router = useRouter()
+const route = useRoute()
 const toast = useToast()
+
+const editUlid = computed(() => (typeof route.params.ulid === 'string' ? route.params.ulid : null))
+const isEditMode = computed(() => editUlid.value !== null)
 
 const currentStep = ref(0)
 const loading = ref(false)
+const loadingCampaign = ref(false)
 
 const availableTags = ref<ContactTag[]>([])
+
+const bodyTextareaEl = ref<HTMLTextAreaElement | null>(null)
+function setBodyTextareaRef(el: unknown) {
+  bodyTextareaEl.value = (el as { $el?: HTMLTextAreaElement })?.$el ?? (el as HTMLTextAreaElement) ?? null
+}
+
+const mediaInputEl = ref<HTMLInputElement | null>(null)
 
 // Step 1: Channel & Name
 const step1 = ref({
@@ -24,7 +37,9 @@ const step2 = ref({
   subject: '',
   body_text: '',
   body_html: '',
-  template_id: null as number | null,
+  whatsapp_message_type: 'text' as 'text' | 'image' | 'video' | 'audio' | 'document',
+  mediaFile: null as File | null,
+  existingMediaUrl: null as string | null,
 })
 
 // Step 3: Audience & Schedule
@@ -38,8 +53,23 @@ const step3 = ref({
 const channelOptions = [
   { label: 'E-mail', value: 'email', icon: 'pi pi-envelope', description: 'Envie newsletters e comunicados por e-mail' },
   { label: 'SMS', value: 'sms', icon: 'pi pi-comment', description: 'Mensagens curtas direto no celular' },
-  { label: 'WhatsApp', value: 'whatsapp', icon: 'pi pi-whatsapp', description: 'Mensagens pelo WhatsApp Business' },
+  { label: 'WhatsApp', value: 'whatsapp', icon: 'pi pi-whatsapp', description: 'Mensagens pelo WhatsApp, via OpenWA' },
 ]
+
+const whatsappMessageTypeOptions = [
+  { label: 'Texto', value: 'text', icon: 'pi pi-align-left' },
+  { label: 'Imagem', value: 'image', icon: 'pi pi-image' },
+  { label: 'Vídeo', value: 'video', icon: 'pi pi-video' },
+  { label: 'Áudio', value: 'audio', icon: 'pi pi-volume-up' },
+  { label: 'Documento', value: 'document', icon: 'pi pi-file' },
+]
+
+const mediaAcceptByType: Record<string, string> = {
+  image: 'image/jpeg,image/png,image/webp',
+  video: 'video/mp4,video/3gpp,video/quicktime',
+  audio: 'audio/mpeg,audio/ogg,audio/mp4',
+  document: '.pdf,.doc,.docx,.xls,.xlsx',
+}
 
 const audienceOptions = [
   { label: 'Todos os contatos', value: 'all' },
@@ -66,11 +96,46 @@ async function fetchTags() {
   }
 }
 
-onMounted(fetchTags)
+async function fetchCampaign(ulid: string) {
+  loadingCampaign.value = true
+  try {
+    const { data } = await api.get<{ data: Campaign }>(`/api/v1/campaigns/${ulid}`)
+    const campaign = data.data
+
+    step1.value = { name: campaign.name, channel: campaign.channel }
+    step2.value = {
+      subject: campaign.subject ?? '',
+      body_text: campaign.bodyText ?? '',
+      body_html: campaign.bodyHtml ?? '',
+      whatsapp_message_type: campaign.whatsappMessageType ?? 'text',
+      mediaFile: null,
+      existingMediaUrl: campaign.mediaUrl ?? null,
+    }
+    step3.value = {
+      audience_type: campaign.segmentFilters?.audience_type ?? 'all',
+      tag_ids: campaign.segmentFilters?.tag_ids ?? [],
+      contact_types: campaign.segmentFilters?.contact_types ?? [],
+      scheduled_at: campaign.scheduledAt,
+    }
+  } catch {
+    toast.add({ severity: 'error', summary: 'Erro', detail: 'Falha ao carregar campanha', life: 3000 })
+    await router.push('/campaigns')
+  } finally {
+    loadingCampaign.value = false
+  }
+}
+
+onMounted(async () => {
+  await fetchTags()
+  if (editUlid.value) await fetchCampaign(editUlid.value)
+})
 
 const canProceedStep1 = computed(() => step1.value.name.trim().length > 0)
 const canProceedStep2 = computed(() => {
-  if (step1.value.channel === 'email') return step2.value.subject.trim().length > 0 && step2.value.body_text.trim().length > 0
+  if (step1.value.channel === 'email') return step2.value.subject.trim().length > 0 && step2.value.body_html.trim().length > 0
+  if (step1.value.channel === 'whatsapp' && step2.value.whatsapp_message_type !== 'text') {
+    return Boolean(step2.value.mediaFile || step2.value.existingMediaUrl)
+  }
   return step2.value.body_text.trim().length > 0
 })
 
@@ -92,6 +157,21 @@ function prevStep() {
   if (currentStep.value > 0) currentStep.value--
 }
 
+function handleMediaChange(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0]
+  if (file) step2.value.mediaFile = file
+}
+
+async function uploadMedia(campaignId: string) {
+  if (!step2.value.mediaFile) return
+
+  const formData = new FormData()
+  formData.append('media', step2.value.mediaFile)
+  await api.post(`/api/v1/campaigns/${campaignId}/media`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+}
+
 async function handleSubmit() {
   loading.value = true
   try {
@@ -109,14 +189,25 @@ async function handleSubmit() {
       subject: step1.value.channel === 'email' ? step2.value.subject : undefined,
       body_text: step2.value.body_text,
       body_html: step1.value.channel === 'email' ? step2.value.body_html || undefined : undefined,
+      whatsapp_message_type: step1.value.channel === 'whatsapp' ? step2.value.whatsapp_message_type : undefined,
       segment_filters: segmentFilters,
     }
 
-    const { data } = await api.post<{ data: { id: string } }>('/api/v1/campaigns', payload)
-    const campaign = data.data
+    let campaignId: string
+    if (isEditMode.value && editUlid.value) {
+      const { data } = await api.put<{ data: { id: string } }>(`/api/v1/campaigns/${editUlid.value}`, payload)
+      campaignId = data.data.id
+    } else {
+      const { data } = await api.post<{ data: { id: string } }>('/api/v1/campaigns', payload)
+      campaignId = data.data.id
+    }
+
+    if (step2.value.mediaFile) {
+      await uploadMedia(campaignId)
+    }
 
     if (step3.value.scheduled_at) {
-      await api.post(`/api/v1/campaigns/${campaign.id}/schedule`, {
+      await api.post(`/api/v1/campaigns/${campaignId}/schedule`, {
         scheduled_at: step3.value.scheduled_at,
       })
     }
@@ -124,12 +215,14 @@ async function handleSubmit() {
     toast.add({
       severity: 'success',
       summary: 'Sucesso',
-      detail: step3.value.scheduled_at ? 'Campanha criada e agendada com sucesso' : 'Campanha criada como rascunho',
+      detail: isEditMode.value
+        ? 'Campanha atualizada com sucesso'
+        : step3.value.scheduled_at ? 'Campanha criada e agendada com sucesso' : 'Campanha criada como rascunho',
       life: 3000,
     })
     await router.push('/campaigns')
   } catch (e) {
-    const msg = (e as { response?: { data?: { message?: string } } }).response?.data?.message || 'Erro ao criar campanha'
+    const msg = (e as { response?: { data?: { message?: string } } }).response?.data?.message || 'Erro ao salvar campanha'
     toast.add({ severity: 'error', summary: 'Erro', detail: msg, life: 4000 })
   } finally {
     loading.value = false
@@ -142,12 +235,16 @@ async function handleSubmit() {
     <div class="flex items-center gap-3 mb-6">
       <Button icon="pi pi-arrow-left" text rounded @click="router.push('/campaigns')" />
       <div>
-        <h1 class="text-2xl font-bold text-surface-800">Nova Campanha</h1>
+        <h1 class="text-2xl font-bold text-surface-800">{{ isEditMode ? 'Editar Campanha' : 'Nova Campanha' }}</h1>
         <p class="text-sm text-surface-500">Crie e configure sua campanha de comunicação</p>
       </div>
     </div>
 
-    <div class="max-w-3xl">
+    <div v-if="loadingCampaign" class="flex justify-center py-20">
+      <ProgressSpinner />
+    </div>
+
+    <div v-else class="max-w-3xl">
       <!-- Steps indicator -->
       <div class="flex items-center gap-2 mb-8">
         <template v-for="(step, index) in steps" :key="step">
@@ -232,33 +329,89 @@ async function handleSubmit() {
             />
           </div>
 
-          <div class="flex flex-col gap-1">
+          <!-- E-mail: editor HTML rico -->
+          <div v-if="step1.channel === 'email'" class="flex flex-col gap-1">
             <label class="text-sm font-medium text-surface-700">
-              Mensagem <span class="text-red-500">*</span>
+              Corpo do e-mail <span class="text-red-500">*</span>
             </label>
+            <Editor v-model="step2.body_html" editor-style="height: 260px" />
+            <p class="text-xs text-surface-400">
+              Variáveis disponíveis: <code>&#123;&#123;contact.name&#125;&#125;</code>, <code>&#123;&#123;contact.first_name&#125;&#125;</code>,
+              <code>&#123;&#123;contact.city&#125;&#125;</code>, <code>&#123;&#123;tenant.name&#125;&#125;</code>
+            </p>
+          </div>
+
+          <!-- WhatsApp: tipo de mensagem -->
+          <div v-if="step1.channel === 'whatsapp'" class="flex flex-col gap-1">
+            <label class="text-sm font-medium text-surface-700">Tipo de mensagem</label>
+            <Select
+              v-model="step2.whatsapp_message_type"
+              :options="whatsappMessageTypeOptions"
+              option-label="label"
+              option-value="value"
+              class="w-full md:w-64"
+            />
+          </div>
+
+          <div v-if="step1.channel === 'whatsapp' && step2.whatsapp_message_type !== 'text'" class="flex flex-col gap-1">
+            <label class="text-sm font-medium text-surface-700">
+              Arquivo ({{ whatsappMessageTypeOptions.find((o) => o.value === step2.whatsapp_message_type)?.label }})
+              <span class="text-red-500">*</span>
+            </label>
+            <div class="flex items-center gap-2">
+              <input
+                ref="mediaInputEl"
+                type="file"
+                class="hidden"
+                :accept="mediaAcceptByType[step2.whatsapp_message_type]"
+                @change="handleMediaChange"
+              />
+              <Button
+                :label="step2.mediaFile ? step2.mediaFile.name : (step2.existingMediaUrl ? 'Trocar arquivo' : 'Selecionar arquivo')"
+                icon="pi pi-upload"
+                size="small"
+                severity="secondary"
+                outlined
+                @click="mediaInputEl?.click()"
+              />
+              <a v-if="step2.existingMediaUrl && !step2.mediaFile" :href="step2.existingMediaUrl" target="_blank" class="text-xs text-primary underline">
+                Ver arquivo atual
+              </a>
+            </div>
+            <p class="text-xs text-surface-400">Enviado via OpenWA. Tamanho máximo: 50 MB.</p>
+          </div>
+
+          <div class="flex flex-col gap-1">
+            <div class="flex items-center justify-between">
+              <label class="text-sm font-medium text-surface-700">
+                {{
+                  step1.channel === 'whatsapp' && step2.whatsapp_message_type !== 'text'
+                    ? 'Legenda (opcional)'
+                    : 'Mensagem'
+                }}
+                <span v-if="!(step1.channel === 'whatsapp' && step2.whatsapp_message_type !== 'text')" class="text-red-500">*</span>
+              </label>
+              <WhatsAppTextToolbar
+                v-if="step1.channel === 'whatsapp'"
+                v-model="step2.body_text"
+                :textarea-el="bodyTextareaEl"
+              />
+            </div>
             <Textarea
+              :ref="setBodyTextareaRef"
               v-model="step2.body_text"
               rows="8"
               class="w-full"
               :placeholder="
                 step1.channel === 'email'
-                  ? 'Escreva o conteúdo em texto simples...'
-                  : 'Escreva a mensagem. Você pode usar {nome} para personalizar.'
+                  ? 'Versão em texto simples (fallback para clientes de e-mail sem HTML)...'
+                  : 'Escreva a mensagem. Você pode usar {{contact.first_name}} para personalizar.'
               "
             />
             <p class="text-xs text-surface-400">
-              Variáveis disponíveis: <code>{nome}</code>, <code>{cidade}</code>
+              Variáveis disponíveis: <code>&#123;&#123;contact.name&#125;&#125;</code>, <code>&#123;&#123;contact.first_name&#125;&#125;</code>,
+              <code>&#123;&#123;contact.city&#125;&#125;</code>
             </p>
-          </div>
-
-          <div v-if="step1.channel === 'email'" class="flex flex-col gap-1">
-            <label class="text-sm font-medium text-surface-700">HTML (opcional)</label>
-            <Textarea
-              v-model="step2.body_html"
-              rows="6"
-              class="w-full font-mono text-xs"
-              placeholder="<p>Versão HTML da mensagem...</p>"
-            />
           </div>
 
           <div class="bg-surface-50 rounded-lg p-3">
@@ -388,7 +541,7 @@ async function handleSubmit() {
           />
           <Button
             v-else
-            label="Criar campanha"
+            :label="isEditMode ? 'Salvar alterações' : 'Criar campanha'"
             icon="pi pi-check"
             :loading="loading"
             @click="handleSubmit"

@@ -2,11 +2,13 @@
 import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
+import { useConfirm } from 'primevue/useconfirm'
 import api from '../utils/axios'
 import type { Campaign, PaginatedResponse } from '../types'
 
 const router = useRouter()
 const toast = useToast()
+const confirm = useConfirm()
 
 const campaigns = ref<PaginatedResponse<Campaign> | null>(null)
 const loading = ref(false)
@@ -78,6 +80,46 @@ function formatDate(dateStr: string | null) {
 function openRate(campaign: Campaign): string {
   if (!campaign.deliveredCount) return '0%'
   return ((campaign.openedCount / campaign.deliveredCount) * 100).toFixed(1) + '%'
+}
+
+function confirmSend(campaign: Campaign) {
+  confirm.require({
+    message: `Enviar a campanha "${campaign.name}" agora? A lista de destinatários será calculada neste momento.`,
+    header: 'Confirmar envio',
+    icon: 'pi pi-send',
+    accept: () => sendCampaign(campaign),
+  })
+}
+
+async function sendCampaign(campaign: Campaign) {
+  try {
+    await api.post(`/api/v1/campaigns/${campaign.id}/send`)
+    toast.add({ severity: 'success', summary: 'Enviando', detail: 'A campanha está sendo enviada', life: 3000 })
+    await fetchCampaigns()
+  } catch (e) {
+    const msg = (e as { response?: { data?: { message?: string } } }).response?.data?.message || 'Falha ao enviar campanha'
+    toast.add({ severity: 'error', summary: 'Erro', detail: msg, life: 4000 })
+  }
+}
+
+function confirmDelete(campaign: Campaign) {
+  confirm.require({
+    message: `Excluir a campanha "${campaign.name}"? Esta ação não pode ser desfeita.`,
+    header: 'Confirmar exclusão',
+    icon: 'pi pi-exclamation-triangle',
+    accept: () => deleteCampaign(campaign),
+  })
+}
+
+async function deleteCampaign(campaign: Campaign) {
+  try {
+    await api.delete(`/api/v1/campaigns/${campaign.id}`)
+    toast.add({ severity: 'success', summary: 'Excluída', detail: 'Campanha removida', life: 2000 })
+    await fetchCampaigns()
+  } catch (e) {
+    const msg = (e as { response?: { data?: { message?: string } } }).response?.data?.message || 'Falha ao excluir campanha'
+    toast.add({ severity: 'error', summary: 'Erro', detail: msg, life: 4000 })
+  }
 }
 
 onMounted(fetchCampaigns)
@@ -196,6 +238,34 @@ watch([selectedStatus, selectedChannel], () => {
             <span class="text-sm text-surface-600">
               {{ formatDate(campaign.completedAt ?? campaign.scheduledAt) }}
             </span>
+          </template>
+        </Column>
+
+        <Column header="Ações" style="width: 160px">
+          <template #body="{ data: campaign }">
+            <div class="flex items-center gap-1 flex-wrap">
+              <Button
+                v-if="campaign.status === 'draft'"
+                icon="pi pi-pencil"
+                size="small" text rounded severity="secondary"
+                v-tooltip.top="'Editar'"
+                @click="router.push(`/campaigns/${campaign.id}/edit`)"
+              />
+              <Button
+                v-if="['draft', 'scheduled'].includes(campaign.status)"
+                icon="pi pi-send"
+                size="small" text rounded severity="success"
+                v-tooltip.top="'Enviar agora'"
+                @click="confirmSend(campaign)"
+              />
+              <Button
+                v-if="campaign.status === 'draft'"
+                icon="pi pi-trash"
+                size="small" text rounded severity="danger"
+                v-tooltip.top="'Excluir'"
+                @click="confirmDelete(campaign)"
+              />
+            </div>
           </template>
         </Column>
       </DataTable>

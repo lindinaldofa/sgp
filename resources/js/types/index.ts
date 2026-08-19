@@ -189,6 +189,13 @@ export interface ServiceRequest {
 
 export type CampaignChannel = 'email' | 'sms' | 'whatsapp'
 export type CampaignStatus = 'draft' | 'scheduled' | 'sending' | 'sent' | 'cancelled' | 'failed'
+export type WhatsAppMessageType = 'text' | 'image' | 'video' | 'audio' | 'document'
+
+export interface CampaignSegmentFilters {
+  audience_type: 'all' | 'tag' | 'type'
+  tag_ids?: number[]
+  contact_types?: string[]
+}
 
 export interface Campaign {
   id: string              // ULID
@@ -196,6 +203,11 @@ export interface Campaign {
   channel: CampaignChannel
   status: CampaignStatus
   subject: string | null
+  bodyHtml: string | null
+  bodyText: string | null
+  whatsappMessageType: WhatsAppMessageType | null
+  mediaUrl: string | null
+  segmentFilters: CampaignSegmentFilters | null
   totalRecipients: number
   sentCount: number
   deliveredCount: number

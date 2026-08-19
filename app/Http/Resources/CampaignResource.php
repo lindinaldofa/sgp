@@ -6,6 +6,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Storage;
 
 class CampaignResource extends JsonResource
 {
@@ -27,6 +28,11 @@ class CampaignResource extends JsonResource
             'status' => $this->status?->value,
             'statusLabel' => $this->status?->label(),
             'subject' => $this->subject,
+            'bodyHtml' => $this->body_html,
+            'bodyText' => $this->body_text,
+            'whatsappMessageType' => $this->whatsapp_message_type?->value,
+            'mediaUrl' => $this->media_path ? url(Storage::url($this->media_path)) : null,
+            'segmentFilters' => $this->segment_filters,
             'totalRecipients' => (int) $this->total_recipients,
             'sentCount' => $sentCount,
             'deliveredCount' => (int) $this->delivered_count,

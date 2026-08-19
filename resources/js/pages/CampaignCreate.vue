@@ -87,6 +87,20 @@ const contactTypeOptions = [
 
 const steps = ['Canal e nome', 'Conteúdo', 'Audiência e envio']
 
+// O input <input type="datetime-local"> não carrega fuso horário: o valor
+// digitado representa o horário local do navegador, sem indicação de UTC.
+// Por isso convertemos explicitamente ao enviar/receber do backend (que
+// grava e devolve tudo em UTC), em vez de mandar a string "nua".
+function localInputToIso(value: string): string {
+  return new Date(value).toISOString()
+}
+
+function isoToLocalInput(iso: string): string {
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 async function fetchTags() {
   try {
     const { data } = await api.get<{ data: ContactTag[] }>('/api/v1/tags')
@@ -115,7 +129,7 @@ async function fetchCampaign(ulid: string) {
       audience_type: campaign.segmentFilters?.audience_type ?? 'all',
       tag_ids: campaign.segmentFilters?.tag_ids ?? [],
       contact_types: campaign.segmentFilters?.contact_types ?? [],
-      scheduled_at: campaign.scheduledAt,
+      scheduled_at: campaign.scheduledAt ? isoToLocalInput(campaign.scheduledAt) : null,
     }
   } catch {
     toast.add({ severity: 'error', summary: 'Erro', detail: 'Falha ao carregar campanha', life: 3000 })
@@ -208,7 +222,7 @@ async function handleSubmit() {
 
     if (step3.value.scheduled_at) {
       await api.post(`/api/v1/campaigns/${campaignId}/schedule`, {
-        scheduled_at: step3.value.scheduled_at,
+        scheduled_at: localInputToIso(step3.value.scheduled_at),
       })
     }
 

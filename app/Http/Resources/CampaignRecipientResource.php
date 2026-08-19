@@ -14,13 +14,13 @@ class CampaignRecipientResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'campaign_id' => $this->campaign_id,
+            'campaignId' => $this->campaign_id,
             'status' => $this->status?->value,
-            'sent_at' => $this->sent_at?->toIso8601String(),
-            'delivered_at' => $this->delivered_at?->toIso8601String(),
-            'opened_at' => $this->opened_at?->toIso8601String(),
-            'clicked_at' => $this->clicked_at?->toIso8601String(),
-            'error_message' => $this->error_message,
+            'sentAt' => $this->sent_at?->toIso8601String(),
+            'deliveredAt' => $this->delivered_at?->toIso8601String(),
+            'openedAt' => $this->opened_at?->toIso8601String(),
+            'clickedAt' => $this->clicked_at?->toIso8601String(),
+            'errorMessage' => $this->error_message,
             'contact' => new ContactResource($this->whenLoaded('contact')),
         ];
     }

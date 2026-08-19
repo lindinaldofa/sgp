@@ -30,6 +30,7 @@ use App\Http\Controllers\ServiceRequestController;
 use App\Http\Controllers\TagController;
 use App\Http\Controllers\TeamController;
 use App\Http\Controllers\TerritoryController;
+use App\Http\Controllers\UnsubscribeController;
 use App\Http\Controllers\WebhookController;
 use Illuminate\Support\Facades\Route;
 
@@ -54,6 +55,10 @@ Route::prefix('webhooks')->group(function () {
 
 // ── Integrações externas (sem auth Sanctum, autenticado via token) ─
 Route::middleware('throttle:60,1')->post('v1/integrations/contacts', [IntegrationContactController::class, 'store']);
+
+// ── Descadastro (link assinado, sem auth) ───────────────────────
+Route::middleware('signed')->get('v1/public/unsubscribe/{recipient}', [UnsubscribeController::class, 'handle'])
+    ->name('unsubscribe.handle');
 
 // ── Rotas autenticadas ──────────────────────────────────────────
 Route::middleware(['auth:sanctum', 'tenant.active'])->prefix('v1')->group(function () {
@@ -159,7 +164,7 @@ Route::middleware(['auth:sanctum', 'tenant.active'])->prefix('v1')->group(functi
     Route::get('communication-config', [CommunicationConfigController::class, 'show']);
     Route::put('communication-config', [CommunicationConfigController::class, 'update']);
     Route::post('communication-config/test', [CommunicationConfigController::class, 'test']);
-    Route::apiResource('automation-rules', AutomationRuleController::class)->except(['show', 'destroy']);
+    Route::apiResource('automation-rules', AutomationRuleController::class)->except(['show']);
 
     // Módulo 05: Proposições
     Route::prefix('propositions')->group(function () {

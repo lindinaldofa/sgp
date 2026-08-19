@@ -66,6 +66,11 @@ class ContactController extends Controller
             $query->where('lgpd_consent', $request->boolean('lgpd_consent'));
         }
 
+        if ($tagIds = $request->input('tag_ids')) {
+            $tagIds = is_array($tagIds) ? $tagIds : [$tagIds];
+            $query->whereHas('tags', fn ($q) => $q->whereIn('tags.id', $tagIds));
+        }
+
         return ContactResource::collection($query->paginate($perPage));
     }
 

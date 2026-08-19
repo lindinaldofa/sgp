@@ -3,7 +3,7 @@ import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import api from '../../utils/axios'
-import type { SGPForm, FormField, FormFieldType } from '../../types'
+import type { SGPForm, FormField, FormFieldType, Tag as ContactTag } from '../../types'
 
 const route  = useRoute()
 const router = useRouter()
@@ -30,9 +30,20 @@ const settings = reactive({
   landingTitle:   '',
   successMessage: 'Obrigado! Suas respostas foram enviadas.',
   redirectUrl:    '',
+  tagId:          null as number | null,
 })
 
 const formUlid = ref<string | null>(null)
+const availableTags = ref<ContactTag[]>([])
+
+async function fetchTags() {
+  try {
+    const { data } = await api.get<{ data: ContactTag[] }>('/api/v1/tags')
+    availableTags.value = data.data
+  } catch {
+    toast.add({ severity: 'error', summary: 'Erro', detail: 'Falha ao carregar tags', life: 3000 })
+  }
+}
 
 // ──── Fields ──────────────────────────────────────────────────────
 const fields = ref<FormField[]>([])
@@ -97,6 +108,7 @@ const contactMappings = [
   { label: 'Bairro',          value: 'neighborhood' },
   { label: 'Cidade',          value: 'city' },
   { label: 'Estado',          value: 'state' },
+  { label: 'Consentimento LGPD (use com um campo checkbox)', value: 'lgpd_consent' },
 ]
 
 // ──── Helpers ──────────────────────────────────────────────────────
@@ -181,6 +193,7 @@ async function loadForm() {
     settings.landingTitle   = f.landingTitle ?? ''
     settings.successMessage = f.successMessage ?? ''
     settings.redirectUrl    = f.redirectUrl ?? ''
+    settings.tagId          = f.tagId ?? null
     fields.value            = (f.fields ?? []).map(field => ({ ...field, options: field.options ?? [] }))
   } catch {
     toast.add({ severity: 'error', summary: 'Erro', detail: 'Falha ao carregar formulário', life: 3000 })
@@ -213,6 +226,7 @@ async function save() {
         landingTitle:   settings.landingTitle || undefined,
         successMessage: settings.successMessage || undefined,
         redirectUrl:    settings.redirectUrl || undefined,
+        tagId:          settings.tagId,
       })
       currentUlid = data.data.ulid
       formUlid.value = currentUlid
@@ -226,6 +240,7 @@ async function save() {
         landingTitle:   settings.landingTitle || undefined,
         successMessage: settings.successMessage || undefined,
         redirectUrl:    settings.redirectUrl || undefined,
+        tagId:          settings.tagId,
       })
     }
 
@@ -281,7 +296,10 @@ watch(() => settings.name, (val) => {
   }
 })
 
-onMounted(loadForm)
+onMounted(() => {
+  void fetchTags()
+  void loadForm()
+})
 </script>
 
 <template>
@@ -577,6 +595,30 @@ onMounted(loadForm)
                 <InputText v-model="settings.landingTitle" placeholder="Ex: Cadastre-se e fique por dentro!" class="w-full" />
               </div>
             </template>
+          </div>
+        </div>
+
+        <!-- Automação -->
+        <div class="p-card p-5">
+          <h2 class="font-semibold text-surface-700 mb-4 pb-2 border-b border-surface-200">Automação</h2>
+          <div class="flex flex-col gap-1">
+            <label class="text-sm font-medium text-surface-700">Marcar contatos deste formulário com a tag</label>
+            <Select
+              v-model="settings.tagId"
+              :options="availableTags"
+              option-label="name"
+              option-value="id"
+              placeholder="Nenhuma (não marcar)"
+              show-clear
+              filter
+              class="w-full"
+            />
+            <p class="text-xs text-surface-400">
+              Todo contato criado ou atualizado por este formulário recebe essa tag. Se houver uma automação
+              configurada em Configurações → Automações para essa tag, a campanha correspondente é disparada
+              automaticamente. Para usar consentimento LGPD, adicione um campo do tipo "Checkbox" mapeado para
+              "Consentimento LGPD" no construtor.
+            </p>
           </div>
         </div>
 

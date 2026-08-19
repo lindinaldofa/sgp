@@ -52,6 +52,7 @@ class Contact extends Model
         'mautic_id',
         'lgpd_consent',
         'lgpd_consent_at',
+        'unsubscribed_at',
         'created_by',
     ];
 
@@ -64,6 +65,7 @@ class Contact extends Model
             'engagement_score' => 'integer',
             'lgpd_consent' => 'boolean',
             'lgpd_consent_at' => 'datetime',
+            'unsubscribed_at' => 'datetime',
             'birth_date' => 'date',
             'latitude' => 'decimal:8',
             'longitude' => 'decimal:8',
@@ -75,6 +77,13 @@ class Contact extends Model
         static::creating(function (Contact $contact): void {
             if (empty($contact->ulid)) {
                 $contact->ulid = Str::ulid()->toBase32();
+            }
+            // Consent is presumed unless a caller explicitly says otherwise (e.g. an
+            // unchecked LGPD field on a form). Set here — not just as a DB column
+            // default — so the in-memory model reflects it immediately after create(),
+            // without requiring a fresh()/refresh() round-trip.
+            if (is_null($contact->lgpd_consent)) {
+                $contact->lgpd_consent = true;
             }
         });
     }

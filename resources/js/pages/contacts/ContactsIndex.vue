@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
 import api from '../../utils/axios'
-import type { Contact, PaginatedResponse } from '../../types'
+import type { Contact, PaginatedResponse, Tag as ContactTag } from '../../types'
 
 const router = useRouter()
 const toast = useToast()
@@ -13,6 +13,8 @@ const confirm = useConfirm()
 const contacts = ref<PaginatedResponse<Contact> | null>(null)
 const search = ref('')
 const selectedType = ref<string | null>(null)
+const selectedTagIds = ref<number[]>([])
+const availableTags = ref<ContactTag[]>([])
 const loading = ref(false)
 const currentPage = ref(1)
 
@@ -56,6 +58,7 @@ async function fetchContacts() {
       params: {
         search: search.value || undefined,
         type: selectedType.value || undefined,
+        tag_ids: selectedTagIds.value.length ? selectedTagIds.value : undefined,
         page: currentPage.value,
       },
     })
@@ -64,6 +67,15 @@ async function fetchContacts() {
     toast.add({ severity: 'error', summary: 'Erro', detail: 'Falha ao carregar contatos', life: 3000 })
   } finally {
     loading.value = false
+  }
+}
+
+async function fetchTags() {
+  try {
+    const { data } = await api.get<{ data: ContactTag[] }>('/api/v1/tags')
+    availableTags.value = data.data
+  } catch {
+    toast.add({ severity: 'error', summary: 'Erro', detail: 'Falha ao carregar tags', life: 3000 })
   }
 }
 
@@ -97,9 +109,12 @@ async function deleteContact(contact: Contact) {
   }
 }
 
-onMounted(fetchContacts)
+onMounted(() => {
+  void fetchContacts()
+  void fetchTags()
+})
 
-watch([search, selectedType], () => {
+watch([search, selectedType, selectedTagIds], () => {
   currentPage.value = 1
   void fetchContacts()
 })
@@ -141,6 +156,16 @@ watch([search, selectedType], () => {
           placeholder="Todos os tipos"
           class="w-48"
         />
+
+        <MultiSelect
+          v-model="selectedTagIds"
+          :options="availableTags"
+          option-label="name"
+          option-value="id"
+          placeholder="Filtrar por tag"
+          filter
+          class="w-56"
+        />
       </div>
 
       <!-- Table -->
@@ -180,6 +205,20 @@ watch([search, selectedType], () => {
             <span v-if="contact.city || contact.state" class="text-sm text-surface-600">
               {{ [contact.city, contact.state].filter(Boolean).join(' / ') }}
             </span>
+            <span v-else class="text-surface-400 text-sm">—</span>
+          </template>
+        </Column>
+
+        <Column header="Tags">
+          <template #body="{ data: contact }">
+            <div v-if="contact.tags?.length" class="flex flex-wrap gap-1">
+              <Tag
+                v-for="tag in contact.tags"
+                :key="tag.id"
+                :value="tag.name"
+                :style="{ backgroundColor: tag.color || undefined }"
+              />
+            </div>
             <span v-else class="text-surface-400 text-sm">—</span>
           </template>
         </Column>

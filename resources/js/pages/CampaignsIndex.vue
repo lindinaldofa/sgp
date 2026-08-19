@@ -82,6 +82,13 @@ function openRate(campaign: Campaign): string {
   return ((campaign.openedCount / campaign.deliveredCount) * 100).toFixed(1) + '%'
 }
 
+// "sending" também pode ser reenviada: o limite diário pode ter deixado parte
+// dos destinatários pendente, e isso permite retomar no dia seguinte.
+function canSend(campaign: Campaign): boolean {
+  if (['draft', 'scheduled'].includes(campaign.status)) return true
+  return campaign.status === 'sending' && campaign.sentCount + campaign.failedCount < campaign.totalRecipients
+}
+
 function confirmSend(campaign: Campaign) {
   confirm.require({
     message: `Enviar a campanha "${campaign.name}" agora? A lista de destinatários será calculada neste momento.`,
@@ -241,9 +248,15 @@ watch([selectedStatus, selectedChannel], () => {
           </template>
         </Column>
 
-        <Column header="Ações" style="width: 160px">
+        <Column header="Ações" style="width: 200px">
           <template #body="{ data: campaign }">
             <div class="flex items-center gap-1 flex-wrap">
+              <Button
+                icon="pi pi-eye"
+                size="small" text rounded severity="secondary"
+                v-tooltip.top="'Visualizar'"
+                @click="router.push(`/campaigns/${campaign.id}`)"
+              />
               <Button
                 v-if="campaign.status === 'draft'"
                 icon="pi pi-pencil"
@@ -252,7 +265,7 @@ watch([selectedStatus, selectedChannel], () => {
                 @click="router.push(`/campaigns/${campaign.id}/edit`)"
               />
               <Button
-                v-if="['draft', 'scheduled'].includes(campaign.status)"
+                v-if="canSend(campaign)"
                 icon="pi pi-send"
                 size="small" text rounded severity="success"
                 v-tooltip.top="'Enviar agora'"

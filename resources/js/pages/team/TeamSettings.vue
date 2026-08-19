@@ -5,9 +5,10 @@ import { useAuthStore } from '../../stores/useAuthStore'
 import api from '../../utils/axios'
 import CommunicationSettings from './CommunicationSettings.vue'
 import IntegrationSources from './IntegrationSources.vue'
+import Automations from './Automations.vue'
 
 const activeTab = ref(0)
-const tabs = ['Organização', 'Comunicação', 'Integrações']
+const tabs = ['Organização', 'Comunicação', 'Integrações', 'Automações']
 
 interface TenantSettings {
   name: string
@@ -171,6 +172,11 @@ onMounted(fetchSettings)
     <!-- Integrações -->
     <div v-else-if="activeTab === 2" class="max-w-3xl">
       <IntegrationSources />
+    </div>
+
+    <!-- Automações -->
+    <div v-else-if="activeTab === 3" class="max-w-3xl">
+      <Automations />
     </div>
 
     <!-- Organização -->

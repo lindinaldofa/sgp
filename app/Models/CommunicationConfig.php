@@ -23,6 +23,8 @@ class CommunicationConfig extends Model
             'daily_email_limit' => 'integer',
             'daily_sms_limit' => 'integer',
             'daily_whatsapp_limit' => 'integer',
+            'batch_size' => 'integer',
+            'batch_delay_seconds' => 'integer',
         ];
     }
 }

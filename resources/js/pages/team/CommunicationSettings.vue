@@ -25,6 +25,8 @@ const form = ref({
   daily_email_limit: 10000,
   daily_sms_limit: 500,
   daily_whatsapp_limit: 5000,
+  batch_size: 50,
+  batch_delay_seconds: 30,
 })
 
 const testWhatsappTo = ref('')
@@ -47,6 +49,8 @@ async function fetchConfig() {
         daily_email_limit: data.daily_email_limit ?? 10000,
         daily_sms_limit: data.daily_sms_limit ?? 500,
         daily_whatsapp_limit: data.daily_whatsapp_limit ?? 5000,
+        batch_size: data.batch_size ?? 50,
+        batch_delay_seconds: data.batch_delay_seconds ?? 30,
       }
       hasOpenwaConfigured.value = Boolean(data.openwa_base_url)
     }
@@ -73,6 +77,8 @@ async function handleSave() {
       daily_email_limit: form.value.daily_email_limit,
       daily_sms_limit: form.value.daily_sms_limit,
       daily_whatsapp_limit: form.value.daily_whatsapp_limit,
+      batch_size: form.value.batch_size,
+      batch_delay_seconds: form.value.batch_delay_seconds,
     })
     toast.add({ severity: 'success', summary: 'Sucesso', detail: 'Configurações salvas', life: 3000 })
     await fetchConfig()
@@ -118,6 +124,30 @@ onMounted(fetchConfig)
     </div>
 
     <div v-else class="flex flex-col gap-6">
+      <!-- Envio em lotes -->
+      <div class="p-card p-5">
+        <h3 class="font-semibold text-surface-700 mb-1 pb-2 border-b border-surface-200">
+          <i class="pi pi-send mr-1 text-surface-500" /> Envio em lotes
+        </h3>
+        <p class="text-xs text-surface-500 mb-4">
+          Ao disparar uma campanha, os destinatários são enviados em lotes com um intervalo entre eles
+          (como no Mautic), em vez de todos de uma vez — evita estourar os limites de taxa da AWS (SES/SNS)
+          e da OpenWA. Vale para os três canais.
+        </p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="flex flex-col gap-1">
+            <label class="text-sm font-medium text-surface-700">Tamanho do lote</label>
+            <InputNumber v-model="form.batch_size" class="w-full" :min="1" :max="1000" />
+            <p class="text-xs text-surface-400">Quantas mensagens enviar de uma vez antes de pausar.</p>
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="text-sm font-medium text-surface-700">Intervalo entre lotes (segundos)</label>
+            <InputNumber v-model="form.batch_delay_seconds" class="w-full" :min="0" :max="3600" />
+            <p class="text-xs text-surface-400">Pausa entre um lote e o próximo.</p>
+          </div>
+        </div>
+      </div>
+
       <!-- WhatsApp / OpenWA -->
       <div class="p-card p-5">
         <h3 class="font-semibold text-surface-700 mb-1 pb-2 border-b border-surface-200">

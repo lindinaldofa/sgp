@@ -52,7 +52,7 @@
     ]
   },
   "resources/css/app.css": {
-    "file": "assets/app-mvZUFDU0.css",
+    "file": "assets/app-Bm2OUJPg.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "name": "app",
@@ -61,7 +61,7 @@
     ]
   },
   "resources/js/layouts/AppLayout.vue": {
-    "file": "assets/AppLayout-DCktrVX1.js",
+    "file": "assets/AppLayout-j5ldhfXN.js",
     "name": "AppLayout",
     "src": "resources/js/layouts/AppLayout.vue",
     "isDynamicEntry": true,
@@ -85,7 +85,7 @@
     ]
   },
   "resources/js/main.ts": {
-    "file": "assets/main-CvPxuz8m.js",
+    "file": "assets/main-Ds3k6rcj.js",
     "name": "main",
     "src": "resources/js/main.ts",
     "isEntry": true,
@@ -112,6 +112,7 @@
       "resources/js/pages/DocumentsIndex.vue",
       "resources/js/pages/CampaignsIndex.vue",
       "resources/js/pages/CampaignCreate.vue",
+      "resources/js/pages/CampaignShow.vue",
       "resources/js/pages/CampaignCreate.vue",
       "resources/js/pages/team/TeamUsers.vue",
       "resources/js/pages/team/TeamSettings.vue",
@@ -122,6 +123,7 @@
       "resources/js/pages/forms/FormBuilder.vue",
       "resources/js/pages/forms/FormSubmissions.vue",
       "resources/js/pages/forms/FormPublic.vue",
+      "resources/js/pages/Unsubscribe.vue",
       "resources/js/layouts/AuthLayout.vue"
     ],
     "css": [
@@ -136,7 +138,7 @@
     ]
   },
   "resources/js/pages/CampaignCreate.vue": {
-    "file": "assets/CampaignCreate-D7EiNweT.js",
+    "file": "assets/CampaignCreate-DW_57Y6i.js",
     "name": "CampaignCreate",
     "src": "resources/js/pages/CampaignCreate.vue",
     "isDynamicEntry": true,
@@ -147,8 +149,20 @@
       "_utils-vendor-BjtuyMK1.js"
     ]
   },
+  "resources/js/pages/CampaignShow.vue": {
+    "file": "assets/CampaignShow-DjUjuWCq.js",
+    "name": "CampaignShow",
+    "src": "resources/js/pages/CampaignShow.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "_vue-vendor-YvRgYli3.js",
+      "_primevue-AUfvZgop.js",
+      "resources/js/main.ts",
+      "_utils-vendor-BjtuyMK1.js"
+    ]
+  },
   "resources/js/pages/CampaignsIndex.vue": {
-    "file": "assets/CampaignsIndex-BSL_ZcDR.js",
+    "file": "assets/CampaignsIndex-XBIn3YVg.js",
     "name": "CampaignsIndex",
     "src": "resources/js/pages/CampaignsIndex.vue",
     "isDynamicEntry": true,
@@ -160,7 +174,7 @@
     ]
   },
   "resources/js/pages/Dashboard.vue": {
-    "file": "assets/Dashboard-DdVdlRDS.js",
+    "file": "assets/Dashboard-0F5YHcKL.js",
     "name": "Dashboard",
     "src": "resources/js/pages/Dashboard.vue",
     "isDynamicEntry": true,
@@ -172,7 +186,7 @@
     ]
   },
   "resources/js/pages/DocumentsIndex.vue": {
-    "file": "assets/DocumentsIndex-COJ4e8T2.js",
+    "file": "assets/DocumentsIndex-CiTCuWdf.js",
     "name": "DocumentsIndex",
     "src": "resources/js/pages/DocumentsIndex.vue",
     "isDynamicEntry": true,
@@ -184,7 +198,7 @@
     ]
   },
   "resources/js/pages/EventsIndex.vue": {
-    "file": "assets/EventsIndex-B-AQW8n8.js",
+    "file": "assets/EventsIndex-BeHKW3xr.js",
     "name": "EventsIndex",
     "src": "resources/js/pages/EventsIndex.vue",
     "isDynamicEntry": true,
@@ -196,7 +210,7 @@
     ]
   },
   "resources/js/pages/ExpensesIndex.vue": {
-    "file": "assets/ExpensesIndex-BqjdH6Cv.js",
+    "file": "assets/ExpensesIndex-C46cb_C5.js",
     "name": "ExpensesIndex",
     "src": "resources/js/pages/ExpensesIndex.vue",
     "isDynamicEntry": true,
@@ -208,7 +222,7 @@
     ]
   },
   "resources/js/pages/Profile.vue": {
-    "file": "assets/Profile-nhiqiM34.js",
+    "file": "assets/Profile-BAHSI-0c.js",
     "name": "Profile",
     "src": "resources/js/pages/Profile.vue",
     "isDynamicEntry": true,
@@ -220,7 +234,7 @@
     ]
   },
   "resources/js/pages/PropositionsIndex.vue": {
-    "file": "assets/PropositionsIndex-Bk1bh4b7.js",
+    "file": "assets/PropositionsIndex-CUyYF-YS.js",
     "name": "PropositionsIndex",
     "src": "resources/js/pages/PropositionsIndex.vue",
     "isDynamicEntry": true,
@@ -232,7 +246,7 @@
     ]
   },
   "resources/js/pages/ServiceRequestsIndex.vue": {
-    "file": "assets/ServiceRequestsIndex-BSAIWald.js",
+    "file": "assets/ServiceRequestsIndex-DcfljAeE.js",
     "name": "ServiceRequestsIndex",
     "src": "resources/js/pages/ServiceRequestsIndex.vue",
     "isDynamicEntry": true,
@@ -243,8 +257,18 @@
       "_utils-vendor-BjtuyMK1.js"
     ]
   },
+  "resources/js/pages/Unsubscribe.vue": {
+    "file": "assets/Unsubscribe-DJSXdCmL.js",
+    "name": "Unsubscribe",
+    "src": "resources/js/pages/Unsubscribe.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "_vue-vendor-YvRgYli3.js",
+      "_utils-vendor-BjtuyMK1.js"
+    ]
+  },
   "resources/js/pages/auth/ForgotPassword.vue": {
-    "file": "assets/ForgotPassword-BvIxfikJ.js",
+    "file": "assets/ForgotPassword-BW9sEFkw.js",
     "name": "ForgotPassword",
     "src": "resources/js/pages/auth/ForgotPassword.vue",
     "isDynamicEntry": true,
@@ -256,7 +280,7 @@
     ]
   },
   "resources/js/pages/auth/Login.vue": {
-    "file": "assets/Login-DjLNtHpI.js",
+    "file": "assets/Login-C9Ah4cxh.js",
     "name": "Login",
     "src": "resources/js/pages/auth/Login.vue",
     "isDynamicEntry": true,
@@ -268,7 +292,7 @@
     ]
   },
   "resources/js/pages/contacts/ContactsCreate.vue": {
-    "file": "assets/ContactsCreate-C4lWBSL2.js",
+    "file": "assets/ContactsCreate-Dz-VpsfK.js",
     "name": "ContactsCreate",
     "src": "resources/js/pages/contacts/ContactsCreate.vue",
     "isDynamicEntry": true,
@@ -280,7 +304,7 @@
     ]
   },
   "resources/js/pages/contacts/ContactsEdit.vue": {
-    "file": "assets/ContactsEdit-BBnFqPoW.js",
+    "file": "assets/ContactsEdit-fm9koGJi.js",
     "name": "ContactsEdit",
     "src": "resources/js/pages/contacts/ContactsEdit.vue",
     "isDynamicEntry": true,
@@ -292,7 +316,7 @@
     ]
   },
   "resources/js/pages/contacts/ContactsIndex.vue": {
-    "file": "assets/ContactsIndex-TcSdUgPQ.js",
+    "file": "assets/ContactsIndex-CS1NmU0-.js",
     "name": "ContactsIndex",
     "src": "resources/js/pages/contacts/ContactsIndex.vue",
     "isDynamicEntry": true,
@@ -304,7 +328,7 @@
     ]
   },
   "resources/js/pages/contacts/ContactsShow.vue": {
-    "file": "assets/ContactsShow-b_fFE32_.js",
+    "file": "assets/ContactsShow-BatkGPSp.js",
     "name": "ContactsShow",
     "src": "resources/js/pages/contacts/ContactsShow.vue",
     "isDynamicEntry": true,
@@ -316,7 +340,7 @@
     ]
   },
   "resources/js/pages/forms/FormBuilder.vue": {
-    "file": "assets/FormBuilder-CG4XBfjr.js",
+    "file": "assets/FormBuilder-MoH6_Cb_.js",
     "name": "FormBuilder",
     "src": "resources/js/pages/forms/FormBuilder.vue",
     "isDynamicEntry": true,
@@ -328,7 +352,7 @@
     ]
   },
   "resources/js/pages/forms/FormPublic.vue": {
-    "file": "assets/FormPublic-BgEmCAGG.js",
+    "file": "assets/FormPublic-Cmk_5hCp.js",
     "name": "FormPublic",
     "src": "resources/js/pages/forms/FormPublic.vue",
     "isDynamicEntry": true,
@@ -338,7 +362,7 @@
     ]
   },
   "resources/js/pages/forms/FormSubmissions.vue": {
-    "file": "assets/FormSubmissions-zrdzIhof.js",
+    "file": "assets/FormSubmissions-CY6VQePh.js",
     "name": "FormSubmissions",
     "src": "resources/js/pages/forms/FormSubmissions.vue",
     "isDynamicEntry": true,
@@ -350,7 +374,7 @@
     ]
   },
   "resources/js/pages/forms/FormsIndex.vue": {
-    "file": "assets/FormsIndex-BXJcGMxq.js",
+    "file": "assets/FormsIndex-BmLFy-fR.js",
     "name": "FormsIndex",
     "src": "resources/js/pages/forms/FormsIndex.vue",
     "isDynamicEntry": true,
@@ -362,7 +386,7 @@
     ]
   },
   "resources/js/pages/team/AuditLogs.vue": {
-    "file": "assets/AuditLogs-A9clFIBB.js",
+    "file": "assets/AuditLogs-Cv02kljj.js",
     "name": "AuditLogs",
     "src": "resources/js/pages/team/AuditLogs.vue",
     "isDynamicEntry": true,
@@ -374,7 +398,7 @@
     ]
   },
   "resources/js/pages/team/TeamSettings.vue": {
-    "file": "assets/TeamSettings-B4Mjcure.js",
+    "file": "assets/TeamSettings-B5qf_Pl7.js",
     "name": "TeamSettings",
     "src": "resources/js/pages/team/TeamSettings.vue",
     "isDynamicEntry": true,
@@ -386,7 +410,7 @@
     ]
   },
   "resources/js/pages/team/TeamUsers.vue": {
-    "file": "assets/TeamUsers-DuuOFfK4.js",
+    "file": "assets/TeamUsers-Bi6898Wq.js",
     "name": "TeamUsers",
     "src": "resources/js/pages/team/TeamUsers.vue",
     "isDynamicEntry": true,

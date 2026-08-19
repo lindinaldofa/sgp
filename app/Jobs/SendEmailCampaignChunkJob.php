@@ -9,6 +9,7 @@ use App\Models\CampaignRecipient;
 use App\Models\CommunicationConfig;
 use App\Models\Contact;
 use App\Services\TemplateVariableResolverService;
+use Illuminate\Bus\Batchable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -19,7 +20,7 @@ use Illuminate\Support\Facades\Mail;
 
 class SendEmailCampaignChunkJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Batchable, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     /** @param array<int, int> $recipientIds */
     public function __construct(
@@ -42,7 +43,15 @@ class SendEmailCampaignChunkJob implements ShouldQueue
 
                     continue;
                 }
+
+                if ($contact->unsubscribed_at) {
+                    $recipient->update(['status' => 'unsubscribed']);
+
+                    continue;
+                }
+
                 $body = $resolver->resolve($campaign->body_html ?? $campaign->body_text ?? '', $contact, $tenant);
+                $body .= $this->unsubscribeFooter($recipient, $tenant->name);
                 $subject = $resolver->resolve($campaign->subject ?? $campaign->name, $contact, $tenant);
 
                 $config = CommunicationConfig::where('tenant_id', $campaign->tenant_id)->first();
@@ -63,5 +72,19 @@ class SendEmailCampaignChunkJob implements ShouldQueue
                 Log::warning("Email send failed for recipient {$recipient->id}: ".$e->getMessage());
             }
         }
+    }
+
+    private function unsubscribeFooter(CampaignRecipient $recipient, string $tenantName): string
+    {
+        $url = $recipient->unsubscribeUrl();
+
+        return <<<HTML
+            <hr style="margin-top:24px;border:none;border-top:1px solid #e2e8f0;">
+            <p style="font-size:12px;color:#94a3b8;margin-top:12px;">
+                Você está recebendo este e-mail porque tem um relacionamento com {$tenantName}.
+                Se não deseja mais receber nossas mensagens,
+                <a href="{$url}" style="color:#94a3b8;">clique aqui para se descadastrar</a>.
+            </p>
+            HTML;
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Actions\ProcessFormSubmissionAction;
+use App\Enums\FormFieldType;
 use App\Http\Resources\FormResource;
 use App\Models\Form;
 use Illuminate\Http\JsonResponse;
@@ -38,7 +39,9 @@ class PublicFormController extends Controller
             if ($field->type->isLayout()) {
                 continue;
             }
-            $fieldRules = ['nullable', 'string', 'max:1000'];
+            $fieldRules = $field->type === FormFieldType::Checkbox
+                ? ['nullable', 'boolean']
+                : ['nullable', 'string', 'max:1000'];
             if ($field->is_required) {
                 $fieldRules[0] = 'required';
             }
@@ -50,9 +53,9 @@ class PublicFormController extends Controller
         $submission = $action->execute($form, $validated, $request);
 
         return response()->json([
-            'message'     => $form->success_message ?: 'Formulário enviado com sucesso!',
+            'message' => $form->success_message ?: 'Formulário enviado com sucesso!',
             'redirectUrl' => $form->redirect_url,
-            'submission'  => ['ulid' => $submission->ulid],
+            'submission' => ['ulid' => $submission->ulid],
         ]);
     }
 }

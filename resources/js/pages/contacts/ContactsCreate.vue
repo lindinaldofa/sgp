@@ -52,7 +52,7 @@ const form = ref({
   electoral_zone: '',
   electoral_section: '',
   engagement_score: 3,
-  lgpd_consent: false,
+  lgpd_consent: true,
   notes: '',
 })
 

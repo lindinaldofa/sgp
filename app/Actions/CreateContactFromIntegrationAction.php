@@ -22,9 +22,10 @@ final class CreateContactFromIntegrationAction
             $contact->tags()->syncWithoutDetaching([$source->tag_id]);
             $source->update(['last_used_at' => now()]);
 
-            if ($wasRecentlyCreated) {
-                SendNewContactAutomationJob::dispatch($contact->id, $source->tag_id);
-            }
+            // Campaign-backed rules react to both creation and update (they dedupe
+            // via CampaignRecipient); legacy template-backed rules only fire on
+            // creation — see SendNewContactAutomationJob for details.
+            SendNewContactAutomationJob::dispatch($contact->id, $source->tag_id, $wasRecentlyCreated);
 
             return $contact;
         });

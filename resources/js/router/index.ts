@@ -115,6 +115,12 @@ const routes: RouteRecordRaw[] = [
         meta: { permission: 'campaigns' as AppPermission },
       },
       {
+        path: 'campaigns/:ulid',
+        name: 'campaigns-show',
+        component: () => import('../pages/CampaignShow.vue'),
+        meta: { permission: 'campaigns' as AppPermission },
+      },
+      {
         path: 'campaigns/:ulid/edit',
         name: 'campaigns-edit',
         component: () => import('../pages/CampaignCreate.vue'),
@@ -180,6 +186,14 @@ const routes: RouteRecordRaw[] = [
     path: '/f/:slug',
     name: 'form-public',
     component: () => import('../pages/forms/FormPublic.vue'),
+    meta: { layout: 'public' },
+  },
+
+  // Public unsubscribe page (no auth, no sidebar)
+  {
+    path: '/unsubscribe/:recipient',
+    name: 'unsubscribe',
+    component: () => import('../pages/Unsubscribe.vue'),
     meta: { layout: 'public' },
   },
 

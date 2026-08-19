@@ -15,9 +15,12 @@ use App\Jobs\SendSmsChunkJob;
 use App\Jobs\SendWhatsAppChunkJob;
 use App\Models\Campaign;
 use App\Models\CampaignRecipient;
+use App\Models\CommunicationConfig;
+use Illuminate\Bus\Batch;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
@@ -123,29 +126,96 @@ class CampaignController extends Controller
     {
         $campaign = Campaign::where('ulid', $ulid)->firstOrFail();
 
+        // "Sending" is allowed too: a previous call may have deferred part of the
+        // audience because of the daily limit, and this lets the admin resume the
+        // rest (e.g. the next day) without the campaign ever being stuck.
         abort_if(
-            ! in_array($campaign->status, [CampaignStatus::Draft, CampaignStatus::Scheduled]),
+            ! in_array($campaign->status, [CampaignStatus::Draft, CampaignStatus::Scheduled, CampaignStatus::Sending]),
             422,
             'Campaign cannot be sent in its current status.',
         );
 
         $resolveRecipients->execute($campaign);
 
-        $recipientIds = $campaign->recipients()->pluck('id')->toArray();
+        $pendingIds = $campaign->recipients()->where('status', 'pending')->pluck('id')->all();
 
-        if (empty($recipientIds)) {
+        if (empty($pendingIds)) {
             return response()->json(['message' => 'Nenhum destinatário elegível foi encontrado para esta campanha.'], 422);
         }
 
-        $campaign->update(['status' => CampaignStatus::Sending, 'started_at' => now()]);
-
-        match ($campaign->channel) {
-            CampaignChannel::Email => SendEmailCampaignChunkJob::dispatch($campaign->id, $recipientIds),
-            CampaignChannel::Sms => SendSmsChunkJob::dispatch($campaign->id, $recipientIds),
-            CampaignChannel::WhatsApp => SendWhatsAppChunkJob::dispatch($campaign->id, $recipientIds),
+        $config = CommunicationConfig::where('tenant_id', $campaign->tenant_id)->first();
+        $batchSize = max(1, $config->batch_size ?? 50);
+        $batchDelay = max(0, $config->batch_delay_seconds ?? 30);
+        $dailyLimit = match ($campaign->channel) {
+            CampaignChannel::Email => $config->daily_email_limit ?? null,
+            CampaignChannel::Sms => $config->daily_sms_limit ?? null,
+            CampaignChannel::WhatsApp => $config->daily_whatsapp_limit ?? null,
         };
 
-        return response()->json(['message' => 'Campaign is being sent.']);
+        $idsToSend = $pendingIds;
+        $deferredCount = 0;
+
+        if ($dailyLimit !== null) {
+            $sentToday = CampaignRecipient::whereDate('sent_at', today())
+                ->whereHas('campaign', fn ($q) => $q->where('tenant_id', $campaign->tenant_id)->where('channel', $campaign->channel))
+                ->count();
+
+            $remainingQuota = max(0, $dailyLimit - $sentToday);
+
+            if (count($pendingIds) > $remainingQuota) {
+                $idsToSend = array_slice($pendingIds, 0, $remainingQuota);
+                $deferredCount = count($pendingIds) - count($idsToSend);
+            }
+        }
+
+        if (empty($idsToSend)) {
+            return response()->json([
+                'message' => 'O limite diário de envio deste canal já foi atingido. Tente novamente amanhã.',
+            ], 422);
+        }
+
+        $campaign->update([
+            'status' => CampaignStatus::Sending,
+            'started_at' => $campaign->started_at ?? now(),
+        ]);
+
+        // Batches of `batchSize`, staggered `batchDelay` seconds apart — mirrors
+        // Mautic's batch sending, so we never burst the SES/SNS/OpenWA APIs.
+        $jobs = [];
+        foreach (array_chunk($idsToSend, $batchSize) as $index => $chunk) {
+            $job = match ($campaign->channel) {
+                CampaignChannel::Email => new SendEmailCampaignChunkJob($campaign->id, $chunk),
+                CampaignChannel::Sms => new SendSmsChunkJob($campaign->id, $chunk),
+                CampaignChannel::WhatsApp => new SendWhatsAppChunkJob($campaign->id, $chunk),
+            };
+
+            if ($index > 0) {
+                $job->delay(now()->addSeconds($index * $batchDelay));
+            }
+
+            $jobs[] = $job;
+        }
+
+        Bus::batch($jobs)
+            ->name("campaign-{$campaign->id}-send")
+            ->then(function (Batch $batch) use ($campaign) {
+                $stillPending = $campaign->recipients()->where('status', 'pending')->exists();
+                if (! $stillPending) {
+                    $campaign->update(['status' => CampaignStatus::Sent, 'completed_at' => now()]);
+                }
+            })
+            ->dispatch();
+
+        $message = $deferredCount > 0
+            ? sprintf(
+                'Envio iniciado para %d destinatários em lotes de %d. %d ficaram pendentes por causa do limite diário e serão enviados na próxima tentativa.',
+                count($idsToSend),
+                $batchSize,
+                $deferredCount,
+            )
+            : sprintf('Envio iniciado para %d destinatários, em lotes de %d.', count($idsToSend), $batchSize);
+
+        return response()->json(['message' => $message]);
     }
 
     public function schedule(Request $request, string $ulid): CampaignResource

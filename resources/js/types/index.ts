@@ -220,6 +220,20 @@ export interface Campaign {
   createdAt: string
 }
 
+export type RecipientStatus = 'pending' | 'sent' | 'delivered' | 'opened' | 'clicked' | 'failed' | 'unsubscribed'
+
+export interface CampaignRecipient {
+  id: number
+  campaignId: number
+  status: RecipientStatus
+  sentAt: string | null
+  deliveredAt: string | null
+  openedAt: string | null
+  clickedAt: string | null
+  errorMessage: string | null
+  contact: Contact
+}
+
 export interface CampaignMetrics {
   deliveryRate: number    // %
   openRate: number        // %
@@ -343,6 +357,8 @@ export interface SGPForm {
   landingLogoPath?: string
   successMessage?: string
   redirectUrl?: string
+  tagId?: number | null
+  tag?: Tag | null
   submissionsCount?: number
   fields?: FormField[]
   createdAt: string
@@ -377,4 +393,6 @@ export interface CommunicationConfig {
   daily_email_limit: number
   daily_sms_limit: number
   daily_whatsapp_limit: number
+  batch_size: number
+  batch_delay_seconds: number
 }

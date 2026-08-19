@@ -18,6 +18,7 @@ class AutomationRule extends Model
         'name',
         'trigger',
         'tag_id',
+        'campaign_id',
         'channel',
         'template_id',
         'is_active',
@@ -30,6 +31,7 @@ class AutomationRule extends Model
         return [
             'tenant_id' => 'integer',
             'tag_id' => 'integer',
+            'campaign_id' => 'integer',
             'channel' => CampaignChannel::class,
             'is_active' => 'boolean',
             'days_before' => 'integer',
@@ -40,6 +42,12 @@ class AutomationRule extends Model
     public function template(): BelongsTo
     {
         return $this->belongsTo(MessageTemplate::class, 'template_id');
+    }
+
+    /** @return BelongsTo<Campaign, $this> */
+    public function campaign(): BelongsTo
+    {
+        return $this->belongsTo(Campaign::class);
     }
 
     /** @return BelongsTo<Tag, $this> */

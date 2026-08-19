@@ -15,7 +15,7 @@ class Form extends Model
     use SoftDeletes;
 
     protected $fillable = [
-        'ulid', 'tenant_id', 'name', 'slug', 'description',
+        'ulid', 'tenant_id', 'name', 'slug', 'description', 'tag_id',
         'is_active', 'is_landing_page', 'landing_title', 'landing_logo_path',
         'success_message', 'redirect_url',
     ];
@@ -23,8 +23,9 @@ class Form extends Model
     protected function casts(): array
     {
         return [
-            'tenant_id'       => 'integer',
-            'is_active'       => 'boolean',
+            'tenant_id' => 'integer',
+            'tag_id' => 'integer',
+            'is_active' => 'boolean',
             'is_landing_page' => 'boolean',
         ];
     }
@@ -36,7 +37,7 @@ class Form extends Model
                 $form->ulid = Str::ulid()->toString();
             }
             if (empty($form->slug)) {
-                $form->slug = Str::slug($form->name) . '-' . Str::random(6);
+                $form->slug = Str::slug($form->name).'-'.Str::random(6);
             }
         });
     }
@@ -57,5 +58,11 @@ class Form extends Model
     public function submissions(): HasMany
     {
         return $this->hasMany(FormSubmission::class);
+    }
+
+    /** @return BelongsTo<Tag, $this> */
+    public function tag(): BelongsTo
+    {
+        return $this->belongsTo(Tag::class);
     }
 }

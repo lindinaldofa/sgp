@@ -22,7 +22,8 @@ final class ResolveCampaignRecipientsAction
         $audienceType = $filters['audience_type'] ?? 'all';
 
         $query = Contact::where('tenant_id', $campaign->tenant_id)
-            ->where('lgpd_consent', true);
+            ->where('lgpd_consent', true)
+            ->whereNull('unsubscribed_at');
 
         if ($audienceType === 'tag' && ! empty($filters['tag_ids'])) {
             $query->whereHas('tags', fn ($q) => $q->whereIn('tags.id', $filters['tag_ids']));

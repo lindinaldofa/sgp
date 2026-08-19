@@ -16,6 +16,8 @@ const successMsg = ref('')
 
 // Field values keyed by field.name
 const values = ref<Record<string, string>>({})
+// Checkbox fields keyed separately since they carry a boolean, not a string
+const checkboxValues = ref<Record<string, boolean>>({})
 const errors = ref<Record<string, string>>({})
 
 async function loadForm() {
@@ -38,7 +40,11 @@ async function loadForm() {
 function validate(): boolean {
   errors.value = {}
   for (const field of form.value?.fields ?? []) {
-    if (field.isRequired && !isLayout(field.type) && !values.value[field.name]?.trim()) {
+    if (!field.isRequired || isLayout(field.type)) continue
+    const isEmpty = field.type === 'checkbox'
+      ? !checkboxValues.value[field.name]
+      : !values.value[field.name]?.trim()
+    if (isEmpty) {
       errors.value[field.name] = 'Este campo é obrigatório'
     }
   }
@@ -53,7 +59,8 @@ async function submit() {
   if (!validate()) return
   submitting.value = true
   try {
-    const { data } = await axios.post<{ message: string; redirectUrl?: string }>(`/api/v1/public/forms/${slug}/submit`, values.value)
+    const payload = { ...values.value, ...checkboxValues.value }
+    const { data } = await axios.post<{ message: string; redirectUrl?: string }>(`/api/v1/public/forms/${slug}/submit`, payload)
     successMsg.value = data.message
     submitted.value  = true
     if (data.redirectUrl) {
@@ -178,7 +185,7 @@ onMounted(loadForm)
 
                 <!-- Checkbox -->
                 <div v-else-if="field.type === 'checkbox'" class="flex items-center gap-2">
-                  <Checkbox v-model="values[field.name]" :binary="true" :input-id="field.name" />
+                  <Checkbox v-model="checkboxValues[field.name]" :binary="true" :input-id="field.name" />
                   <label :for="field.name" class="text-sm cursor-pointer">{{ field.placeholder || field.label }}</label>
                 </div>
 

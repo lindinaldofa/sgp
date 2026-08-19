@@ -35,6 +35,7 @@ class SendBirthdayMessagesJob implements ShouldQueue
 
             $contacts = Contact::where('tenant_id', $rule->tenant_id)
                 ->where('lgpd_consent', true)
+                ->whereNull('unsubscribed_at')
                 ->whereMonth('birth_date', $today->month)
                 ->whereDay('birth_date', $today->day)
                 ->get();

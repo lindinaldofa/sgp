@@ -114,6 +114,13 @@ onMounted(fetchForms)
           </template>
         </Column>
 
+        <Column header="Tag de origem">
+          <template #body="{ data: form }">
+            <Tag v-if="form.tag" :value="form.tag.name" :style="{ backgroundColor: form.tag.color || undefined }" />
+            <span v-else class="text-xs text-surface-400">—</span>
+          </template>
+        </Column>
+
         <Column header="Respostas" style="width: 110px">
           <template #body="{ data: form }">
             <span class="font-semibold text-surface-700">{{ form.submissionsCount ?? 0 }}</span>

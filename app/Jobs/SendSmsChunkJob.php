@@ -10,6 +10,7 @@ use App\Models\CommunicationConfig;
 use App\Models\Contact;
 use App\Services\TemplateVariableResolverService;
 use Aws\Sns\SnsClient;
+use Illuminate\Bus\Batchable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -19,7 +20,7 @@ use Illuminate\Support\Facades\Log;
 
 class SendSmsChunkJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Batchable, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     /** @param array<int, int> $recipientIds */
     public function __construct(
@@ -53,6 +54,12 @@ class SendSmsChunkJob implements ShouldQueue
             if (! $contact instanceof Contact) {
                 $recipient->update(['status' => 'failed', 'error_message' => 'Contact not found']);
                 $campaign->increment('failed_count');
+
+                continue;
+            }
+
+            if ($contact->unsubscribed_at) {
+                $recipient->update(['status' => 'unsubscribed']);
 
                 continue;
             }

@@ -35,6 +35,8 @@ class CommunicationConfigController extends Controller
             'daily_email_limit' => ['nullable', 'integer', 'min:0'],
             'daily_sms_limit' => ['nullable', 'integer', 'min:0'],
             'daily_whatsapp_limit' => ['nullable', 'integer', 'min:0'],
+            'batch_size' => ['nullable', 'integer', 'min:1', 'max:1000'],
+            'batch_delay_seconds' => ['nullable', 'integer', 'min:0', 'max:3600'],
         ]);
 
         $config = CommunicationConfig::updateOrCreate(

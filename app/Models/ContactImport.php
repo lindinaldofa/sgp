@@ -18,6 +18,7 @@ class ContactImport extends Model
         'tag_id',
         'filename',
         'headers',
+        'delimiter',
         'column_mapping',
         'status',
         'total_rows',

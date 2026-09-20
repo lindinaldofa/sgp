@@ -8,6 +8,7 @@ use App\Jobs\GeocodeContactJob;
 use App\Jobs\SyncContactSegmentsJob;
 use App\Jobs\SyncContactToMauticJob;
 use App\Models\Contact;
+use App\Support\ContactSegmentSyncSuppressor;
 
 class ContactObserver
 {
@@ -18,7 +19,10 @@ class ContactObserver
         }
 
         SyncContactToMauticJob::dispatch($contact->id);
-        SyncContactSegmentsJob::dispatch($contact->id);
+
+        if (! ContactSegmentSyncSuppressor::isSuppressed()) {
+            SyncContactSegmentsJob::dispatch($contact->id);
+        }
     }
 
     public function updated(Contact $contact): void
@@ -31,6 +35,8 @@ class ContactObserver
             SyncContactToMauticJob::dispatch($contact->id);
         }
 
-        SyncContactSegmentsJob::dispatch($contact->id);
+        if (! ContactSegmentSyncSuppressor::isSuppressed()) {
+            SyncContactSegmentsJob::dispatch($contact->id);
+        }
     }
 }

@@ -6,12 +6,16 @@ namespace App\Http\Controllers;
 
 use App\Jobs\ProcessContactImportJob;
 use App\Models\ContactImport;
+use App\Support\CsvFileReader;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class ContactImportController extends Controller
 {
+    private const MAX_PREVIEW_ROWS = 5;
+
     /** Step 1: upload the CSV and return its header row + a small preview. */
     public function store(Request $request): JsonResponse
     {
@@ -22,28 +26,38 @@ class ContactImportController extends Controller
         $path = $request->file('file')->store('imports', 'local');
         $fullPath = Storage::disk('local')->path($path);
 
-        $handle = fopen($fullPath, 'r');
-        if ($handle === false) {
-            return response()->json(['message' => 'Não foi possível ler o arquivo enviado.'], 422);
+        try {
+            $reader = CsvFileReader::open($fullPath);
+            if (! $reader) {
+                Storage::disk('local')->delete($path);
+
+                return response()->json(['message' => 'Não foi possível ler o arquivo enviado.'], 422);
+            }
+
+            $headers = $reader->readRow() ?? [];
+            $headers = array_map(fn ($h) => (string) $h, $headers);
+
+            $preview = [];
+            $totalRows = 0;
+            while (($row = $reader->readRow()) !== null) {
+                if ($this->isBlankRow($row)) {
+                    continue;
+                }
+                $totalRows++;
+                if (count($preview) < self::MAX_PREVIEW_ROWS) {
+                    $preview[] = $row;
+                }
+            }
+            $delimiter = $reader->delimiter();
+            $reader->close();
+        } catch (\Throwable $e) {
+            Storage::disk('local')->delete($path);
+            Log::error("Contact CSV upload failed to parse: {$e->getMessage()}");
+
+            return response()->json(['message' => 'Não foi possível processar o arquivo CSV enviado. Verifique se o formato e a codificação (UTF-8) estão corretos.'], 422);
         }
 
-        $headers = fgetcsv($handle, 0, ',') ?: [];
-        $headers = array_map(fn ($h) => trim((string) $h), $headers);
-
-        $preview = [];
-        $totalRows = 0;
-        while (($row = fgetcsv($handle, 0, ',')) !== false) {
-            if ($row === [null]) {
-                continue;
-            }
-            $totalRows++;
-            if (count($preview) < 5) {
-                $preview[] = $row;
-            }
-        }
-        fclose($handle);
-
-        if (empty($headers)) {
+        if (empty($headers) || empty(array_filter($headers))) {
             Storage::disk('local')->delete($path);
 
             return response()->json(['message' => 'O arquivo está vazio ou não é um CSV válido.'], 422);
@@ -54,6 +68,7 @@ class ContactImportController extends Controller
             'user_id' => auth()->id(),
             'filename' => $path,
             'headers' => $headers,
+            'delimiter' => $delimiter,
             'status' => 'mapping',
             'total_rows' => $totalRows,
         ]);
@@ -65,6 +80,12 @@ class ContactImportController extends Controller
             'previewRows' => $preview,
             'totalRows' => $totalRows,
         ], 201);
+    }
+
+    /** @param array<int, string|null> $row */
+    private function isBlankRow(array $row): bool
+    {
+        return count($row) === 1 && ($row[0] === null || $row[0] === '');
     }
 
     /** Step 2: receive the column → field mapping and the tag, then process. */

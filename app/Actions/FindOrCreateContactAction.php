@@ -7,6 +7,7 @@ namespace App\Actions;
 use App\Enums\ContactType;
 use App\Jobs\SyncContactSegmentsJob;
 use App\Models\Contact;
+use App\Support\ContactSegmentSyncSuppressor;
 
 /**
  * Shared find-or-create-by-email/CPF/phone logic used by every "contacts flow
@@ -83,7 +84,10 @@ final class FindOrCreateContactAction
 
         if ($tagIds !== []) {
             $contact->tags()->syncWithoutDetaching($tagIds);
-            SyncContactSegmentsJob::dispatch($contact->id);
+
+            if (! ContactSegmentSyncSuppressor::isSuppressed()) {
+                SyncContactSegmentsJob::dispatch($contact->id);
+            }
         }
 
         return $contact;

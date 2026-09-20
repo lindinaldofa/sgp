@@ -34,6 +34,13 @@ class SendWhatsAppChunkJob implements ShouldQueue
         $tenant = $campaign->tenant ?? throw new \RuntimeException("Campaign {$campaign->id} has no tenant");
         $recipients = CampaignRecipient::with('contact')->findMany($this->recipientIds);
 
+        $mediaUrl = null;
+        $mediaMimetype = null;
+        if ($campaign->media_path && Storage::disk('public')->exists($campaign->media_path)) {
+            $mediaUrl = url(Storage::url($campaign->media_path));
+            $mediaMimetype = Storage::disk('public')->mimeType($campaign->media_path) ?: null;
+        }
+
         foreach ($recipients as $recipient) {
             $contact = $recipient->contact;
 
@@ -62,14 +69,15 @@ class SendWhatsAppChunkJob implements ShouldQueue
             $message = $resolver->resolve($campaign->body_text ?? '', $contact, $tenant);
             $messageType = $campaign->whatsapp_message_type ?? WhatsAppMessageType::Text;
 
-            if ($messageType === WhatsAppMessageType::Text || ! $campaign->media_path) {
+            if ($messageType === WhatsAppMessageType::Text || ! $mediaUrl || ! $mediaMimetype) {
                 $success = $whatsapp->sendText($phone, $message, (int) $campaign->tenant_id);
             } else {
                 $success = $whatsapp->sendMedia(
                     $messageType,
                     $phone,
-                    url(Storage::url($campaign->media_path)),
+                    $mediaUrl,
                     (int) $campaign->tenant_id,
+                    $mediaMimetype,
                     caption: $message !== '' ? $message : null,
                     filename: basename($campaign->media_path),
                 );

@@ -29,6 +29,8 @@ final class ResolveCampaignRecipientsAction
             $query->whereHas('tags', fn ($q) => $q->whereIn('tags.id', $filters['tag_ids']));
         } elseif ($audienceType === 'type' && ! empty($filters['contact_types'])) {
             $query->whereIn('type', $filters['contact_types']);
+        } elseif ($audienceType === 'segment' && ! empty($filters['segment_ids'])) {
+            $query->whereHas('segments', fn ($q) => $q->whereIn('segments.id', $filters['segment_ids']));
         }
 
         $contactIds = $query->pluck('id');

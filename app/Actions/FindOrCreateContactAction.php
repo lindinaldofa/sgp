@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Actions;
 
 use App\Enums\ContactType;
+use App\Jobs\SyncContactSegmentsJob;
 use App\Models\Contact;
 
 /**
@@ -82,6 +83,7 @@ final class FindOrCreateContactAction
 
         if ($tagIds !== []) {
             $contact->tags()->syncWithoutDetaching($tagIds);
+            SyncContactSegmentsJob::dispatch($contact->id);
         }
 
         return $contact;

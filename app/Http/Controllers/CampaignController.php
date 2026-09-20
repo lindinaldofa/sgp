@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Actions\AddContactToCampaignAction;
 use App\Actions\ResolveCampaignRecipientsAction;
 use App\Enums\CampaignChannel;
 use App\Enums\CampaignStatus;
+use App\Enums\RecipientStatus;
 use App\Enums\WhatsAppMessageType;
 use App\Http\Resources\CampaignRecipientResource;
 use App\Http\Resources\CampaignResource;
@@ -16,6 +18,8 @@ use App\Jobs\SendWhatsAppChunkJob;
 use App\Models\Campaign;
 use App\Models\CampaignRecipient;
 use App\Models\CommunicationConfig;
+use App\Models\Contact;
+use App\Models\Segment;
 use Illuminate\Bus\Batch;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -51,6 +55,7 @@ class CampaignController extends Controller
 
         $data['status'] = CampaignStatus::Draft;
         $data['user_id'] = $this->typedUser($request)->id;
+        $data = $this->resolveSegmentIds($data);
 
         $campaign = Campaign::create($data);
 
@@ -82,9 +87,27 @@ class CampaignController extends Controller
             'segment_filters' => ['nullable', 'array'],
         ]);
 
+        $data = $this->resolveSegmentIds($data);
         $campaign->update($data);
 
         return new CampaignResource($campaign->fresh());
+    }
+
+    /**
+     * The API always identifies segments by ULID; segment_filters.segment_ids
+     * must be stored as the internal numeric FK so ResolveCampaignRecipientsAction
+     * can query `segments.id` directly.
+     *
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>
+     */
+    private function resolveSegmentIds(array $data): array
+    {
+        if (($data['segment_filters']['audience_type'] ?? null) === 'segment' && ! empty($data['segment_filters']['segment_ids'])) {
+            $data['segment_filters']['segment_ids'] = Segment::whereIn('ulid', $data['segment_filters']['segment_ids'])->pluck('id')->all();
+        }
+
+        return $data;
     }
 
     public function uploadMedia(Request $request, string $ulid): JsonResponse
@@ -254,5 +277,47 @@ class CampaignController extends Controller
             ->paginate(15);
 
         return CampaignRecipientResource::collection($recipients);
+    }
+
+    public function addRecipient(Request $request, string $ulid, AddContactToCampaignAction $addToCampaign): JsonResponse
+    {
+        $campaign = Campaign::where('ulid', $ulid)->firstOrFail();
+
+        abort_if($campaign->status === CampaignStatus::Cancelled, 422, 'Campanha cancelada não aceita novos destinatários.');
+
+        $data = $request->validate([
+            'contact_id' => ['required', 'string', 'exists:contacts,ulid'],
+        ]);
+
+        $contact = Contact::where('ulid', $data['contact_id'])->firstOrFail();
+
+        if (! $contact->lgpd_consent || $contact->unsubscribed_at) {
+            return response()->json([
+                'message' => 'Este contato não pode receber comunicações (sem consentimento LGPD ou descadastrado).',
+            ], 422);
+        }
+
+        $result = $addToCampaign->execute($campaign, $contact, dispatch: 'if_active');
+
+        if (! $result['created']) {
+            return response()->json(['message' => 'Este contato já é destinatário desta campanha.'], 422);
+        }
+
+        return (new CampaignRecipientResource($result['recipient']->load('contact')))
+            ->response()
+            ->setStatusCode(201);
+    }
+
+    public function removeRecipient(string $ulid, int $recipientId): JsonResponse
+    {
+        $campaign = Campaign::where('ulid', $ulid)->firstOrFail();
+        $recipient = CampaignRecipient::where('campaign_id', $campaign->id)->findOrFail($recipientId);
+
+        abort_if($recipient->status !== RecipientStatus::Pending, 422, 'Só é possível remover destinatários que ainda não foram processados.');
+
+        $recipient->delete();
+        $campaign->decrement('total_recipients');
+
+        return response()->json(null, 204);
     }
 }

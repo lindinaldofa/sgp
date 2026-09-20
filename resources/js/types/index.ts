@@ -213,9 +213,50 @@ export type CampaignStatus = 'draft' | 'scheduled' | 'sending' | 'sent' | 'cance
 export type WhatsAppMessageType = 'text' | 'image' | 'video' | 'audio' | 'document'
 
 export interface CampaignSegmentFilters {
-  audience_type: 'all' | 'tag' | 'type'
+  audience_type: 'all' | 'tag' | 'type' | 'segment'
   tag_ids?: number[]
   contact_types?: string[]
+  segment_ids?: string[]
+}
+
+// ============================================================
+// Segmentos
+// ============================================================
+
+export type SegmentFilterOperator =
+  | 'equals'
+  | 'not_equals'
+  | 'contains'
+  | 'not_contains'
+  | 'is_empty'
+  | 'is_not_empty'
+  | 'greater_than'
+  | 'less_than'
+  | 'between'
+  | 'in'
+  | 'not_in'
+  | 'before'
+  | 'after'
+  | 'any_of'
+  | 'all_of'
+  | 'none_of'
+
+export interface SegmentFilterRule {
+  field: string
+  operator: SegmentFilterOperator
+  value: string | number | boolean | (string | number)[] | null
+}
+
+export interface Segment {
+  id: string               // ULID
+  name: string
+  description: string | null
+  filters: SegmentFilterRule[]
+  isActive: boolean
+  contactsCount?: number
+  lastRecalculatedAt: string | null
+  createdAt: string
+  updatedAt: string
 }
 
 export interface Campaign {

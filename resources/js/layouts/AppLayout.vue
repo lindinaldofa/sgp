@@ -13,6 +13,7 @@ const mobileSidebarOpen = ref(false)
 const allNavItems = [
   { label: 'Dashboard',    icon: 'pi pi-home',      to: '/dashboard',        permission: 'dashboard'        as AppPermission },
   { label: 'Contatos',     icon: 'pi pi-users',     to: '/contacts',         permission: 'contacts'         as AppPermission },
+  { label: 'Segmentos',    icon: 'pi pi-sitemap',   to: '/segments',         permission: 'segments'         as AppPermission },
   { label: 'Formulários',  icon: 'pi pi-clipboard', to: '/forms',            permission: 'forms'            as AppPermission },
   { label: 'Atendimentos', icon: 'pi pi-ticket',    to: '/service-requests', permission: 'service-requests' as AppPermission },
   { label: 'Proposições',  icon: 'pi pi-file-edit', to: '/propositions',     permission: 'propositions'     as AppPermission },

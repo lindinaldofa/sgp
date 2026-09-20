@@ -22,14 +22,18 @@ class OpenWaService
     }
 
     /**
-     * Sends a media message (image, video, audio or document) by URL.
-     * The URL must be publicly reachable by the OpenWA server.
+     * Sends a media message (image, video, audio or document) by URL. The URL
+     * must be publicly reachable by the OpenWA server. `mimetype` is required
+     * for the message to render correctly on WhatsApp — without it, OpenWA
+     * falls back to guessing from the URL/response headers, which often
+     * produces a file WhatsApp can't open (wrong message type or codec).
      */
     public function sendMedia(
         WhatsAppMessageType $type,
         string $phone,
         string $mediaUrl,
         int $tenantId,
+        string $mimetype,
         ?string $caption = null,
         ?string $filename = null,
     ): bool {
@@ -43,6 +47,7 @@ class OpenWaService
 
         $payload = array_filter([
             'url' => $mediaUrl,
+            'mimetype' => $mimetype,
             'caption' => $caption,
             'filename' => $filename,
         ], fn ($value) => $value !== null && $value !== '');

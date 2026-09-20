@@ -26,6 +26,7 @@ use App\Http\Controllers\IntegrationSourceController;
 use App\Http\Controllers\MessageTemplateController;
 use App\Http\Controllers\PropositionController;
 use App\Http\Controllers\PublicFormController;
+use App\Http\Controllers\SegmentController;
 use App\Http\Controllers\ServiceCategoryController;
 use App\Http\Controllers\ServiceRequestController;
 use App\Http\Controllers\TagController;
@@ -108,6 +109,19 @@ Route::middleware(['auth:sanctum', 'tenant.active'])->prefix('v1')->group(functi
     // Tags
     Route::apiResource('tags', TagController::class)->except(['show']);
 
+    // Segmentos
+    Route::prefix('segments')->group(function () {
+        Route::get('/', [SegmentController::class, 'index']);
+        Route::post('/', [SegmentController::class, 'store']);
+        Route::get('{ulid}', [SegmentController::class, 'show']);
+        Route::put('{ulid}', [SegmentController::class, 'update']);
+        Route::delete('{ulid}', [SegmentController::class, 'destroy']);
+        Route::post('{ulid}/recalculate', [SegmentController::class, 'recalculate']);
+        Route::get('{ulid}/contacts', [SegmentController::class, 'contacts']);
+        Route::post('{ulid}/contacts', [SegmentController::class, 'addContact']);
+        Route::delete('{ulid}/contacts/{contactUlid}', [SegmentController::class, 'removeContact']);
+    });
+
     // Campos personalizados
     Route::apiResource('custom-fields', CustomFieldController::class)->except(['show']);
 
@@ -164,6 +178,8 @@ Route::middleware(['auth:sanctum', 'tenant.active'])->prefix('v1')->group(functi
         Route::post('{ulid}/schedule', [CampaignController::class, 'schedule']);
         Route::post('{ulid}/cancel', [CampaignController::class, 'cancel']);
         Route::get('{ulid}/recipients', [CampaignController::class, 'recipients']);
+        Route::post('{ulid}/recipients', [CampaignController::class, 'addRecipient']);
+        Route::delete('{ulid}/recipients/{recipientId}', [CampaignController::class, 'removeRecipient']);
     });
     Route::apiResource('message-templates', MessageTemplateController::class)->except(['show']);
     Route::get('communication-config', [CommunicationConfigController::class, 'show']);

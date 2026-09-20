@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Http\Resources\TagResource;
+use App\Jobs\SyncContactSegmentsJob;
 use App\Models\Contact;
 use App\Models\Tag;
 use Illuminate\Http\JsonResponse;
@@ -70,6 +71,7 @@ class TagController extends Controller
         ]);
 
         $contact->tags()->syncWithoutDetaching($validated['tag_ids']);
+        SyncContactSegmentsJob::dispatch($contact->id);
 
         return response()->json([
             'message' => 'Tags attached successfully.',
@@ -81,6 +83,7 @@ class TagController extends Controller
     {
         $contact = Contact::where('ulid', $ulid)->firstOrFail();
         $contact->tags()->detach($tagId);
+        SyncContactSegmentsJob::dispatch($contact->id);
 
         return response()->json(null, 204);
     }

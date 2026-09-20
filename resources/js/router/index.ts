@@ -72,6 +72,25 @@ const routes: RouteRecordRaw[] = [
         component: () => import('../pages/contacts/ContactsEdit.vue'),
         meta: { permission: 'contacts' as AppPermission },
       },
+      // Segments
+      {
+        path: 'segments',
+        name: 'segments',
+        component: () => import('../pages/segments/SegmentsIndex.vue'),
+        meta: { permission: 'segments' as AppPermission },
+      },
+      {
+        path: 'segments/create',
+        name: 'segments-create',
+        component: () => import('../pages/segments/SegmentShow.vue'),
+        meta: { permission: 'segments' as AppPermission },
+      },
+      {
+        path: 'segments/:ulid',
+        name: 'segments-show',
+        component: () => import('../pages/segments/SegmentShow.vue'),
+        meta: { permission: 'segments' as AppPermission },
+      },
       // Service Requests
       {
         path: 'service-requests',

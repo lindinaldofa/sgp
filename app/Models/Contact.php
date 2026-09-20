@@ -96,6 +96,14 @@ class Contact extends Model
         return $this->belongsToMany(Tag::class, 'contact_tags');
     }
 
+    /** @return BelongsToMany<Segment, $this> */
+    public function segments(): BelongsToMany
+    {
+        return $this->belongsToMany(Segment::class, 'segment_contact')
+            ->withPivot('source')
+            ->withTimestamps();
+    }
+
     /** @return BelongsTo<Contact, $this> */
     public function leader(): BelongsTo
     {

@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
 import api from '../utils/axios'
-import type { Campaign, CampaignRecipient, PaginatedResponse } from '../types'
+import type { Campaign, CampaignRecipient, Contact, PaginatedResponse } from '../types'
 
 const route = useRoute()
 const router = useRouter()
@@ -20,6 +20,10 @@ const campaign = ref<Campaign | null>(null)
 const recipients = ref<PaginatedResponse<CampaignRecipient> | null>(null)
 const loadingRecipients = ref(false)
 const recipientsPage = ref(1)
+
+const contactSuggestions = ref<Contact[]>([])
+const selectedContactToAdd = ref<Contact | null>(null)
+const addingRecipient = ref(false)
 
 const channelConfig: Record<string, { label: string; icon: string }> = {
   email: { label: 'E-mail', icon: 'pi pi-envelope' },
@@ -110,6 +114,61 @@ async function fetchRecipients() {
     toast.add({ severity: 'error', summary: 'Erro', detail: 'Falha ao carregar destinatários', life: 3000 })
   } finally {
     loadingRecipients.value = false
+  }
+}
+
+async function searchContacts(event: { query: string }) {
+  if (!event.query.trim()) {
+    contactSuggestions.value = []
+    return
+  }
+  try {
+    const { data } = await api.get<PaginatedResponse<Contact>>('/api/v1/contacts', {
+      params: { search: event.query, per_page: 10 },
+    })
+    contactSuggestions.value = data.data
+  } catch {
+    contactSuggestions.value = []
+  }
+}
+
+async function addRecipient() {
+  if (!campaign.value || !selectedContactToAdd.value) return
+  addingRecipient.value = true
+  try {
+    await api.post(`/api/v1/campaigns/${campaign.value.id}/recipients`, {
+      contact_id: selectedContactToAdd.value.id,
+    })
+    toast.add({ severity: 'success', summary: 'Sucesso', detail: 'Contato adicionado à campanha', life: 3000 })
+    selectedContactToAdd.value = null
+    await fetchCampaign()
+    await fetchRecipients()
+  } catch (e) {
+    const msg = (e as { response?: { data?: { message?: string } } }).response?.data?.message || 'Falha ao adicionar contato'
+    toast.add({ severity: 'error', summary: 'Erro', detail: msg, life: 4000 })
+  } finally {
+    addingRecipient.value = false
+  }
+}
+
+function confirmRemoveRecipient(recipient: CampaignRecipient) {
+  confirm.require({
+    message: `Remover "${recipient.contact?.name}" desta campanha?`,
+    header: 'Confirmar remoção',
+    icon: 'pi pi-exclamation-triangle',
+    accept: () => removeRecipient(recipient),
+  })
+}
+
+async function removeRecipient(recipient: CampaignRecipient) {
+  if (!campaign.value) return
+  try {
+    await api.delete(`/api/v1/campaigns/${campaign.value.id}/recipients/${recipient.id}`)
+    toast.add({ severity: 'success', summary: 'Removido', detail: 'Contato removido da campanha', life: 3000 })
+    await fetchCampaign()
+    await fetchRecipients()
+  } catch {
+    toast.add({ severity: 'error', summary: 'Erro', detail: 'Falha ao remover contato', life: 3000 })
   }
 }
 
@@ -263,6 +322,34 @@ onMounted(async () => {
         <!-- Recipients -->
         <div class="p-card">
           <h2 class="font-semibold text-surface-700 p-5 pb-3 border-b border-surface-200">Destinatários</h2>
+
+          <div class="px-5 py-3 border-b border-surface-200 flex items-center gap-2 flex-wrap">
+            <AutoComplete
+              v-model="selectedContactToAdd"
+              :suggestions="contactSuggestions"
+              option-label="name"
+              placeholder="Buscar contato por nome, e-mail ou telefone..."
+              class="flex-1 min-w-64"
+              input-class="w-full"
+              @complete="searchContacts"
+            >
+              <template #option="{ option }: { option: Contact }">
+                <div>
+                  <p class="text-sm font-medium">{{ option.name }}</p>
+                  <p class="text-xs text-surface-400">{{ option.email || option.whatsapp || option.phone || '—' }}</p>
+                </div>
+              </template>
+            </AutoComplete>
+            <Button
+              label="Adicionar à campanha"
+              icon="pi pi-plus"
+              size="small"
+              :loading="addingRecipient"
+              :disabled="!selectedContactToAdd"
+              @click="addRecipient"
+            />
+          </div>
+
           <DataTable
             :value="recipients?.data"
             :loading="loadingRecipients"
@@ -291,6 +378,20 @@ onMounted(async () => {
             <Column header="Erro">
               <template #body="{ data: r }: { data: CampaignRecipient }">
                 <span class="text-xs text-red-500">{{ r.errorMessage }}</span>
+              </template>
+            </Column>
+            <Column header="" style="width: 60px">
+              <template #body="{ data: r }: { data: CampaignRecipient }">
+                <Button
+                  v-if="r.status === 'pending'"
+                  icon="pi pi-trash"
+                  size="small"
+                  text
+                  rounded
+                  severity="danger"
+                  title="Remover da campanha"
+                  @click="confirmRemoveRecipient(r)"
+                />
               </template>
             </Column>
           </DataTable>

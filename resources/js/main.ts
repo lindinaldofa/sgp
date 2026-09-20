@@ -43,6 +43,7 @@ import FileUpload from 'primevue/fileupload'
 import Message from 'primevue/message'
 import RadioButton from 'primevue/radiobutton'
 import Editor from 'primevue/editor'
+import AutoComplete from 'primevue/autocomplete'
 
 import App from './App.vue'
 import router from './router'
@@ -164,6 +165,7 @@ app.component('FileUpload', FileUpload)
 app.component('Message', Message)
 app.component('RadioButton', RadioButton)
 app.component('Editor', Editor)
+app.component('AutoComplete', AutoComplete)
 
 // Disponibilizar axios globalmente (opcional — preferir usar via composable)
 app.config.globalProperties.$axios = axios

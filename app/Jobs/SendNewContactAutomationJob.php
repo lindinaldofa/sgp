@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
+use App\Actions\AddContactToCampaignAction;
 use App\Enums\CampaignChannel;
 use App\Models\AutomationRule;
-use App\Models\CampaignRecipient;
 use App\Models\Contact;
 use App\Models\Tenant;
 use App\Services\OpenWaService;
@@ -84,28 +84,7 @@ class SendNewContactAutomationJob implements ShouldQueue
             return;
         }
 
-        $recipient = CampaignRecipient::firstOrCreate(
-            ['campaign_id' => $campaign->id, 'contact_id' => $contact->id],
-            ['status' => 'pending'],
-        );
-
-        // Already a recipient of this campaign from a previous trigger — don't resend.
-        if (! $recipient->wasRecentlyCreated) {
-            return;
-        }
-
-        $campaign->increment('total_recipients');
-
-        // These jobs never finalize the campaign's status themselves (that only
-        // happens inside the Bus::batch() completion callback in
-        // CampaignController::send()) — an automatic campaign has no single "sent"
-        // moment, it keeps accumulating recipients as contacts trickle in.
-        match ($campaign->channel) {
-            CampaignChannel::Email => SendEmailCampaignChunkJob::dispatch($campaign->id, [$recipient->id]),
-            CampaignChannel::Sms => SendSmsChunkJob::dispatch($campaign->id, [$recipient->id]),
-            CampaignChannel::WhatsApp => SendWhatsAppChunkJob::dispatch($campaign->id, [$recipient->id]),
-            default => Log::warning("Automation rule {$rule->id} skipped: campaign {$campaign->id} has no channel"),
-        };
+        app(AddContactToCampaignAction::class)->execute($campaign, $contact, dispatch: 'always');
     }
 
     private function triggerTemplate(

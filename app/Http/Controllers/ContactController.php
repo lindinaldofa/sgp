@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreContactRequest;
 use App\Http\Requests\UpdateContactRequest;
 use App\Http\Resources\ContactResource;
+use App\Jobs\SyncContactSegmentsJob;
 use App\Models\Contact;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -84,6 +85,7 @@ class ContactController extends Controller
 
         if ($tagIds !== null) {
             $contact->tags()->sync($tagIds);
+            SyncContactSegmentsJob::dispatch($contact->id);
         }
 
         return (new ContactResource($contact->load('tags')))->response()->setStatusCode(201);
@@ -108,6 +110,7 @@ class ContactController extends Controller
 
         if ($tagIds !== null) {
             $contact->tags()->sync($tagIds);
+            SyncContactSegmentsJob::dispatch($contact->id);
         }
 
         return (new ContactResource($contact->load('tags')))->response();

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Resources;
 
+use App\Models\Segment;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Storage;
@@ -32,7 +33,7 @@ class CampaignResource extends JsonResource
             'bodyText' => $this->body_text,
             'whatsappMessageType' => $this->whatsapp_message_type?->value,
             'mediaUrl' => $this->media_path ? url(Storage::url($this->media_path)) : null,
-            'segmentFilters' => $this->segment_filters,
+            'segmentFilters' => $this->segmentFiltersForOutput(),
             'totalRecipients' => (int) $this->total_recipients,
             'sentCount' => $sentCount,
             'deliveredCount' => (int) $this->delivered_count,
@@ -46,5 +47,25 @@ class CampaignResource extends JsonResource
             'createdAt' => $this->created_at?->toIso8601String(),
             'recipientsCount' => $this->whenCounted('recipients'),
         ];
+    }
+
+    /**
+     * segment_filters.segment_ids is stored as internal numeric FKs (for cheap
+     * querying at send time); the API only ever exposes segment ULIDs, so it's
+     * translated back here.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function segmentFiltersForOutput(): ?array
+    {
+        $filters = $this->segment_filters;
+
+        if (! is_array($filters) || ($filters['audience_type'] ?? null) !== 'segment' || empty($filters['segment_ids'])) {
+            return $filters;
+        }
+
+        $filters['segment_ids'] = Segment::whereIn('id', $filters['segment_ids'])->pluck('ulid')->all();
+
+        return $filters;
     }
 }

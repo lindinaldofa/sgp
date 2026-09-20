@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Observers;
 
 use App\Jobs\GeocodeContactJob;
+use App\Jobs\SyncContactSegmentsJob;
 use App\Jobs\SyncContactToMauticJob;
 use App\Models\Contact;
 
@@ -17,6 +18,7 @@ class ContactObserver
         }
 
         SyncContactToMauticJob::dispatch($contact->id);
+        SyncContactSegmentsJob::dispatch($contact->id);
     }
 
     public function updated(Contact $contact): void
@@ -28,5 +30,7 @@ class ContactObserver
         if ($contact->wasChanged(['name', 'email', 'phone', 'whatsapp', 'type'])) {
             SyncContactToMauticJob::dispatch($contact->id);
         }
+
+        SyncContactSegmentsJob::dispatch($contact->id);
     }
 }

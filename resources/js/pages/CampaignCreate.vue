@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import api from '../utils/axios'
-import type { Tag as ContactTag, Campaign } from '../types'
+import type { Tag as ContactTag, Campaign, Segment } from '../types'
 import WhatsAppTextToolbar from '../components/common/WhatsAppTextToolbar.vue'
 
 const router = useRouter()
@@ -18,6 +18,7 @@ const loading = ref(false)
 const loadingCampaign = ref(false)
 
 const availableTags = ref<ContactTag[]>([])
+const availableSegments = ref<Segment[]>([])
 
 const bodyTextareaEl = ref<HTMLTextAreaElement | null>(null)
 function setBodyTextareaRef(el: unknown) {
@@ -44,9 +45,10 @@ const step2 = ref({
 
 // Step 3: Audience & Schedule
 const step3 = ref({
-  audience_type: 'all' as 'all' | 'tag' | 'type',
+  audience_type: 'all' as 'all' | 'tag' | 'type' | 'segment',
   tag_ids: [] as number[],
   contact_types: [] as string[],
+  segment_ids: [] as string[],
   scheduled_at: null as string | null,
 })
 
@@ -75,6 +77,7 @@ const audienceOptions = [
   { label: 'Todos os contatos', value: 'all' },
   { label: 'Por tag', value: 'tag' },
   { label: 'Por tipo de contato', value: 'type' },
+  { label: 'Por segmento', value: 'segment' },
 ]
 
 const contactTypeOptions = [
@@ -110,6 +113,15 @@ async function fetchTags() {
   }
 }
 
+async function fetchSegments() {
+  try {
+    const { data } = await api.get<{ data: Segment[] }>('/api/v1/segments', { params: { per_page: 100 } })
+    availableSegments.value = data.data
+  } catch {
+    toast.add({ severity: 'error', summary: 'Erro', detail: 'Falha ao carregar segmentos', life: 3000 })
+  }
+}
+
 async function fetchCampaign(ulid: string) {
   loadingCampaign.value = true
   try {
@@ -129,6 +141,7 @@ async function fetchCampaign(ulid: string) {
       audience_type: campaign.segmentFilters?.audience_type ?? 'all',
       tag_ids: campaign.segmentFilters?.tag_ids ?? [],
       contact_types: campaign.segmentFilters?.contact_types ?? [],
+      segment_ids: campaign.segmentFilters?.segment_ids ?? [],
       scheduled_at: campaign.scheduledAt ? isoToLocalInput(campaign.scheduledAt) : null,
     }
   } catch {
@@ -140,7 +153,7 @@ async function fetchCampaign(ulid: string) {
 }
 
 onMounted(async () => {
-  await fetchTags()
+  await Promise.all([fetchTags(), fetchSegments()])
   if (editUlid.value) await fetchCampaign(editUlid.value)
 })
 
@@ -195,6 +208,7 @@ async function handleSubmit() {
       audience_type: step3.value.audience_type,
       tag_ids: step3.value.audience_type === 'tag' ? step3.value.tag_ids : undefined,
       contact_types: step3.value.audience_type === 'type' ? step3.value.contact_types : undefined,
+      segment_ids: step3.value.audience_type === 'segment' ? step3.value.segment_ids : undefined,
     }
 
     const payload = {
@@ -480,6 +494,23 @@ async function handleSubmit() {
                 placeholder="Selecionar tipos"
                 class="w-full"
               />
+            </div>
+
+            <div v-if="step3.audience_type === 'segment'" class="flex flex-col gap-1">
+              <label class="text-sm font-medium text-surface-700">Segmentos</label>
+              <MultiSelect
+                v-model="step3.segment_ids"
+                :options="availableSegments"
+                option-label="name"
+                option-value="id"
+                placeholder="Selecionar segmentos"
+                filter
+                class="w-full"
+              />
+              <p v-if="!availableSegments.length" class="text-xs text-surface-400">
+                Nenhum segmento cadastrado ainda.
+                <router-link to="/segments/create" class="text-primary">Criar um segmento</router-link>.
+              </p>
             </div>
           </div>
         </div>

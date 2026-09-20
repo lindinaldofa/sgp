@@ -6,6 +6,7 @@ namespace App\Actions;
 
 use App\Jobs\SendNewContactAutomationJob;
 use App\Models\Contact;
+use App\Models\CustomField;
 use App\Models\IntegrationSource;
 use Illuminate\Support\Facades\DB;
 
@@ -19,9 +20,13 @@ final class CreateContactFromIntegrationAction
     public function execute(IntegrationSource $source, array $data): Contact
     {
         return DB::transaction(function () use ($source, $data) {
+            $customData = $this->filterCustomFields((int) $source->tenant_id, $data['custom_fields'] ?? []);
+            unset($data['custom_fields']);
+
             $contact = $this->findOrCreateContact->execute(
                 tenantId: (int) $source->tenant_id,
                 nativeData: $data,
+                customData: $customData,
                 tagIds: [$source->tag_id],
             );
 
@@ -40,5 +45,26 @@ final class CreateContactFromIntegrationAction
 
             return $contact;
         });
+    }
+
+    /**
+     * Only tenant-defined, currently active custom field keys are allowed
+     * through — an external integration is untrusted input, so an unknown
+     * key (typo, stale integration after a field was renamed/deleted, or a
+     * deliberate attempt to write arbitrary JSON) is silently dropped rather
+     * than polluting custom_data.
+     *
+     * @param array<string, mixed> $customFields
+     * @return array<string, mixed>
+     */
+    private function filterCustomFields(int $tenantId, mixed $customFields): array
+    {
+        if (! is_array($customFields) || $customFields === []) {
+            return [];
+        }
+
+        $allowedKeys = CustomField::where('tenant_id', $tenantId)->where('is_active', true)->pluck('key');
+
+        return array_intersect_key($customFields, array_flip($allowedKeys->all()));
     }
 }

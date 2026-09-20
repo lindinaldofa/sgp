@@ -28,6 +28,33 @@ preenchidos para o SGP, que:
 tem os dois campos, recomenda-se marcar ambos como obrigatórios na UI para melhor
 experiência e para garantir a deduplicação (ver seção 4).
 
+### Campos personalizados (opcional)
+
+Além dos campos fixos acima, o SGP permite que cada tenant defina **campos personalizados**
+próprios (em Configurações → Campos personalizados). Para enviar valores para eles, use o
+objeto `custom_fields` no payload, com a **chave (`key`)** de cada campo definida no SGP:
+
+```json
+{
+  "name": "Maria Souza",
+  "email": "maria@example.com",
+  "custom_fields": {
+    "zona_eleitoral_pref": "045",
+    "aceita_visita": true
+  }
+}
+```
+
+- Peça ao administrador do SGP a lista de `key`s dos campos personalizados que deseja
+  preencher (cada campo tem uma chave própria, visível na tela de Configurações → Campos
+  personalizados) — não há como descobri-las por este token, que só cria contatos.
+- Qualquer chave que não corresponda a um campo personalizado ativo do tenant é **ignorada
+  silenciosamente** (não gera erro) — proteção contra digitação errada ou campo removido
+  depois que a integração já estava em produção.
+- Tipo do valor esperado por tipo de campo: `text`/`textarea` → string; `number` → número;
+  `date` → string `AAAA-MM-DD`; `select` → string (uma das opções cadastradas); `checkbox` →
+  `true`/`false`.
+
 ### Campo opcional — consentimento LGPD
 
 | Campo no payload | Tipo    | Observação |
@@ -181,6 +208,8 @@ função, nunca no bundle do cliente.
       **no backend/serverless**, nunca no frontend
 - [ ] Construir o formulário com os campos Nome, WhatsApp, E-mail, Cidade, Bairro
 - [ ] (Opcional, recomendado) Adicionar checkbox de consentimento LGPD e mapear para `lgpd_consent`
+- [ ] (Opcional) Se o formulário tiver campos além dos fixos, confirmar com o administrador as
+      `key`s dos campos personalizados correspondentes e enviá-los em `custom_fields`
 - [ ] Implementar o endpoint/proxy de backend que recebe o submit e chama a API do SGP
 - [ ] Tratar e exibir ao usuário os erros `401`, `422` e `429`
 - [ ] Testar o fluxo completo e confirmar no SGP que o contato foi criado com a tag de

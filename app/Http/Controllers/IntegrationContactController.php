@@ -46,6 +46,7 @@ class IntegrationContactController extends Controller
             'city' => ['nullable', 'string', 'max:100'],
             'state' => ['nullable', 'string', 'max:2'],
             'lgpd_consent' => ['nullable', 'boolean'],
+            'custom_fields' => ['nullable', 'array'],
         ]);
 
         $contact = $action->execute($source, $validated);

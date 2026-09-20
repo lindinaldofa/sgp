@@ -127,14 +127,21 @@ class CampaignController extends Controller
         $path = $request->file('media')->store("campaigns/{$campaign->id}", 'public');
         $campaign->update(['media_path' => $path]);
 
-        return response()->json(['mediaUrl' => Storage::url($path)]);
+        return response()->json(['mediaUrl' => url(Storage::url($path))]);
     }
 
-    public function destroy(string $ulid): JsonResponse
+    public function destroy(Request $request, string $ulid): JsonResponse
     {
         $campaign = Campaign::where('ulid', $ulid)->firstOrFail();
 
-        abort_if($campaign->status !== CampaignStatus::Draft, 422, 'Only draft campaigns can be deleted.');
+        // Non-draft campaigns are normally locked to prevent losing send history,
+        // but an admin may need to clean up a mistaken/test send — allow it for
+        // that role regardless of status.
+        abort_if(
+            $campaign->status !== CampaignStatus::Draft && ! $this->typedUser($request)->isAdmin(),
+            422,
+            'Only draft campaigns can be deleted.',
+        );
 
         if ($campaign->media_path) {
             Storage::disk('public')->delete($campaign->media_path);
@@ -306,6 +313,40 @@ class CampaignController extends Controller
         return (new CampaignRecipientResource($result['recipient']->load('contact')))
             ->response()
             ->setStatusCode(201);
+    }
+
+    public function bulkAddRecipients(Request $request, string $ulid, AddContactToCampaignAction $addToCampaign): JsonResponse
+    {
+        $campaign = Campaign::where('ulid', $ulid)->firstOrFail();
+
+        abort_if($campaign->status === CampaignStatus::Cancelled, 422, 'Campanha cancelada não aceita novos destinatários.');
+
+        $data = $request->validate([
+            'contact_ids' => ['required', 'array', 'min:1'],
+            'contact_ids.*' => ['string', 'exists:contacts,ulid'],
+        ]);
+
+        $contacts = Contact::whereIn('ulid', $data['contact_ids'])->get();
+
+        $added = 0;
+        $skipped = 0;
+        foreach ($contacts as $contact) {
+            if (! $contact->lgpd_consent || $contact->unsubscribed_at) {
+                $skipped++;
+
+                continue;
+            }
+
+            $result = $addToCampaign->execute($campaign, $contact, dispatch: 'if_active');
+            $result['created'] ? $added++ : $skipped++;
+        }
+
+        return response()->json([
+            'message' => "{$added} contato(s) adicionado(s) à campanha \"{$campaign->name}\"."
+                .($skipped > 0 ? " {$skipped} ignorado(s) (já eram destinatários ou não podem receber comunicações)." : ''),
+            'added' => $added,
+            'skipped' => $skipped,
+        ]);
     }
 
     public function removeRecipient(string $ulid, int $recipientId): JsonResponse

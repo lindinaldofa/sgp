@@ -110,6 +110,41 @@ class SegmentController extends Controller
 
         $contact = Contact::where('ulid', $data['contact_id'])->firstOrFail();
 
+        $this->addContactToSegment($segment, $contact);
+
+        return (new ContactResource($contact->load('tags')))
+            ->response()
+            ->setStatusCode(201);
+    }
+
+    public function bulkAddContacts(Request $request, string $ulid): JsonResponse
+    {
+        $segment = Segment::where('ulid', $ulid)->firstOrFail();
+
+        $data = $request->validate([
+            'contact_ids' => ['required', 'array', 'min:1'],
+            'contact_ids.*' => ['string', 'exists:contacts,ulid'],
+        ]);
+
+        $contacts = Contact::whereIn('ulid', $data['contact_ids'])->get();
+
+        foreach ($contacts as $contact) {
+            $this->addContactToSegment($segment, $contact);
+        }
+
+        return response()->json([
+            'message' => "{$contacts->count()} contato(s) adicionado(s) ao segmento \"{$segment->name}\".",
+            'contactsCount' => DB::table('segment_contact')->where('segment_id', $segment->id)->count(),
+        ]);
+    }
+
+    /**
+     * Upserts a contact as a segment member with source=manual — "sticky"
+     * membership that survives future filter recalculations even if the
+     * contact stops matching. Shared by the single and bulk add endpoints.
+     */
+    private function addContactToSegment(Segment $segment, Contact $contact): void
+    {
         $existing = DB::table('segment_contact')
             ->where('segment_id', $segment->id)
             ->where('contact_id', $contact->id)
@@ -131,10 +166,6 @@ class SegmentController extends Controller
                 'updated_at' => now(),
             ]);
         }
-
-        return (new ContactResource($contact->load('tags')))
-            ->response()
-            ->setStatusCode(201);
     }
 
     public function removeContact(string $ulid, string $contactUlid): JsonResponse

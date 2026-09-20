@@ -119,6 +119,7 @@ Route::middleware(['auth:sanctum', 'tenant.active'])->prefix('v1')->group(functi
         Route::post('{ulid}/recalculate', [SegmentController::class, 'recalculate']);
         Route::get('{ulid}/contacts', [SegmentController::class, 'contacts']);
         Route::post('{ulid}/contacts', [SegmentController::class, 'addContact']);
+        Route::post('{ulid}/contacts/bulk', [SegmentController::class, 'bulkAddContacts']);
         Route::delete('{ulid}/contacts/{contactUlid}', [SegmentController::class, 'removeContact']);
     });
 
@@ -179,6 +180,7 @@ Route::middleware(['auth:sanctum', 'tenant.active'])->prefix('v1')->group(functi
         Route::post('{ulid}/cancel', [CampaignController::class, 'cancel']);
         Route::get('{ulid}/recipients', [CampaignController::class, 'recipients']);
         Route::post('{ulid}/recipients', [CampaignController::class, 'addRecipient']);
+        Route::post('{ulid}/recipients/bulk', [CampaignController::class, 'bulkAddRecipients']);
         Route::delete('{ulid}/recipients/{recipientId}', [CampaignController::class, 'removeRecipient']);
     });
     Route::apiResource('message-templates', MessageTemplateController::class)->except(['show']);

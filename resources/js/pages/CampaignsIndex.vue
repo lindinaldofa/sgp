@@ -5,10 +5,12 @@ import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
 import api from '../utils/axios'
 import type { Campaign, PaginatedResponse } from '../types'
+import { useAuthStore } from '../stores/useAuthStore'
 
 const router = useRouter()
 const toast = useToast()
 const confirm = useConfirm()
+const authStore = useAuthStore()
 
 const campaigns = ref<PaginatedResponse<Campaign> | null>(null)
 const loading = ref(false)
@@ -272,7 +274,7 @@ watch([selectedStatus, selectedChannel], () => {
                 @click="confirmSend(campaign)"
               />
               <Button
-                v-if="campaign.status === 'draft'"
+                v-if="campaign.status === 'draft' || authStore.isAdmin"
                 icon="pi pi-trash"
                 size="small" text rounded severity="danger"
                 v-tooltip.top="'Excluir'"

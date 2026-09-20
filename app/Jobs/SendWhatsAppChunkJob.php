@@ -16,6 +16,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class SendWhatsAppChunkJob implements ShouldQueue
@@ -38,7 +39,7 @@ class SendWhatsAppChunkJob implements ShouldQueue
         $mediaMimetype = null;
         if ($campaign->media_path && Storage::disk('public')->exists($campaign->media_path)) {
             $mediaUrl = url(Storage::url($campaign->media_path));
-            $mediaMimetype = Storage::disk('public')->mimeType($campaign->media_path) ?: null;
+            $mediaMimetype = $this->detectMimetype($campaign->media_path);
         }
 
         foreach ($recipients as $recipient) {
@@ -66,21 +67,30 @@ class SendWhatsAppChunkJob implements ShouldQueue
                 continue;
             }
 
-            $message = $resolver->resolve($campaign->body_text ?? '', $contact, $tenant);
-            $messageType = $campaign->whatsapp_message_type ?? WhatsAppMessageType::Text;
+            // QUEUE_CONNECTION=sync runs this job inline with the HTTP request that
+            // triggered the send, so an uncaught exception for one recipient would
+            // otherwise fail the whole request and leave the rest of the batch
+            // (and the campaign's status) stuck — isolate failures per recipient.
+            try {
+                $message = $resolver->resolve($campaign->body_text ?? '', $contact, $tenant);
+                $messageType = $campaign->whatsapp_message_type ?? WhatsAppMessageType::Text;
 
-            if ($messageType === WhatsAppMessageType::Text || ! $mediaUrl || ! $mediaMimetype) {
-                $success = $whatsapp->sendText($phone, $message, (int) $campaign->tenant_id);
-            } else {
-                $success = $whatsapp->sendMedia(
-                    $messageType,
-                    $phone,
-                    $mediaUrl,
-                    (int) $campaign->tenant_id,
-                    $mediaMimetype,
-                    caption: $message !== '' ? $message : null,
-                    filename: basename($campaign->media_path),
-                );
+                if ($messageType === WhatsAppMessageType::Text || ! $mediaUrl || ! $mediaMimetype) {
+                    $success = $whatsapp->sendText($phone, $message, (int) $campaign->tenant_id);
+                } else {
+                    $success = $whatsapp->sendMedia(
+                        $messageType,
+                        $phone,
+                        $mediaUrl,
+                        (int) $campaign->tenant_id,
+                        $mediaMimetype,
+                        caption: $message !== '' ? $message : null,
+                        filename: basename($campaign->media_path),
+                    );
+                }
+            } catch (\Throwable $e) {
+                Log::error("WhatsApp send failed for recipient {$recipient->id}: {$e->getMessage()}");
+                $success = false;
             }
 
             if ($success) {
@@ -91,5 +101,43 @@ class SendWhatsAppChunkJob implements ShouldQueue
                 $campaign->increment('failed_count');
             }
         }
+    }
+
+    /**
+     * Storage::mimeType() relies on the `fileinfo` PHP extension and can throw
+     * on some environments where it's missing/misconfigured — that must never
+     * take down the whole campaign send, so it's wrapped here with a static
+     * extension-based fallback covering every format the upload form accepts.
+     */
+    private function detectMimetype(string $path): ?string
+    {
+        try {
+            $detected = Storage::disk('public')->mimeType($path);
+            if ($detected) {
+                return $detected;
+            }
+        } catch (\Throwable $e) {
+            Log::warning("Failed to detect mimetype for {$path}: {$e->getMessage()}");
+        }
+
+        $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+
+        return match ($extension) {
+            'jpg', 'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'webp' => 'image/webp',
+            'mp4' => 'video/mp4',
+            '3gp' => 'video/3gpp',
+            'mov' => 'video/quicktime',
+            'mp3' => 'audio/mpeg',
+            'ogg' => 'audio/ogg',
+            'm4a' => 'audio/mp4',
+            'pdf' => 'application/pdf',
+            'doc' => 'application/msword',
+            'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'xls' => 'application/vnd.ms-excel',
+            'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            default => null,
+        };
     }
 }

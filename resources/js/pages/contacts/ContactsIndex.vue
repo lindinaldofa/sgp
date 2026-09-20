@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
 import api from '../../utils/axios'
-import type { Contact, PaginatedResponse, Tag as ContactTag, CustomField } from '../../types'
+import type { Contact, PaginatedResponse, Tag as ContactTag, CustomField, Segment, Campaign } from '../../types'
 import {
   DEFAULT_CONTACT_COLUMNS,
   CUSTOM_FIELD_COLUMN_PREFIX,
@@ -26,6 +26,13 @@ const loading = ref(false)
 const currentPage = ref(1)
 const customFields = ref<CustomField[]>([])
 const columnKeys = ref<string[]>([...DEFAULT_CONTACT_COLUMNS])
+
+const selectedContacts = ref<Contact[]>([])
+const availableSegments = ref<Segment[]>([])
+const availableCampaigns = ref<Campaign[]>([])
+const bulkSegmentId = ref<string | null>(null)
+const bulkCampaignId = ref<string | null>(null)
+const bulkActionLoading = ref(false)
 
 const availableColumns = computed(() => buildAvailableColumns(customFields.value))
 const visibleColumns = computed(() =>
@@ -115,6 +122,62 @@ async function fetchColumnPreference() {
   }
 }
 
+async function fetchSegments() {
+  try {
+    const { data } = await api.get<PaginatedResponse<Segment>>('/api/v1/segments', { params: { per_page: 100 } })
+    availableSegments.value = data.data
+  } catch {
+    // silencioso — a ação em lote de segmentos simplesmente ficará vazia
+  }
+}
+
+async function fetchCampaigns() {
+  try {
+    const { data } = await api.get<PaginatedResponse<Campaign>>('/api/v1/campaigns', { params: { per_page: 100 } })
+    availableCampaigns.value = data.data.filter((c) => c.status !== 'cancelled')
+  } catch {
+    // silencioso — a ação em lote de campanhas simplesmente ficará vazia
+  }
+}
+
+async function bulkAddToSegment(segmentId: string | null) {
+  if (!segmentId || !selectedContacts.value.length) return
+  bulkActionLoading.value = true
+  try {
+    const { data } = await api.post<{ message: string }>(`/api/v1/segments/${segmentId}/contacts/bulk`, {
+      contact_ids: selectedContacts.value.map((c) => c.id),
+    })
+    toast.add({ severity: 'success', summary: 'Sucesso', detail: data.message, life: 4000 })
+  } catch (e) {
+    const msg = (e as { response?: { data?: { message?: string } } }).response?.data?.message || 'Falha ao adicionar ao segmento'
+    toast.add({ severity: 'error', summary: 'Erro', detail: msg, life: 4000 })
+  } finally {
+    bulkActionLoading.value = false
+    bulkSegmentId.value = null
+  }
+}
+
+async function bulkAddToCampaign(campaignId: string | null) {
+  if (!campaignId || !selectedContacts.value.length) return
+  bulkActionLoading.value = true
+  try {
+    const { data } = await api.post<{ message: string }>(`/api/v1/campaigns/${campaignId}/recipients/bulk`, {
+      contact_ids: selectedContacts.value.map((c) => c.id),
+    })
+    toast.add({ severity: 'success', summary: 'Sucesso', detail: data.message, life: 4000 })
+  } catch (e) {
+    const msg = (e as { response?: { data?: { message?: string } } }).response?.data?.message || 'Falha ao adicionar à campanha'
+    toast.add({ severity: 'error', summary: 'Erro', detail: msg, life: 4000 })
+  } finally {
+    bulkActionLoading.value = false
+    bulkCampaignId.value = null
+  }
+}
+
+function clearSelection() {
+  selectedContacts.value = []
+}
+
 function onPageChange(event: { page: number }) {
   currentPage.value = event.page + 1
   void fetchContacts()
@@ -150,6 +213,8 @@ onMounted(() => {
   void fetchTags()
   void fetchCustomFields()
   void fetchColumnPreference()
+  void fetchSegments()
+  void fetchCampaigns()
 })
 
 watch([search, selectedType, selectedTagIds], () => {
@@ -215,14 +280,61 @@ watch([search, selectedType, selectedTagIds], () => {
         />
       </div>
 
+      <!-- Bulk actions -->
+      <div
+        v-if="selectedContacts.length"
+        class="p-3 border-b border-surface-200 bg-primary-50 flex flex-wrap items-center gap-3"
+      >
+        <span class="text-sm font-medium text-surface-700">
+          {{ selectedContacts.length }} contato(s) selecionado(s)
+        </span>
+
+        <Select
+          :model-value="bulkSegmentId"
+          :options="availableSegments"
+          option-label="name"
+          option-value="id"
+          placeholder="Adicionar ao segmento..."
+          filter
+          class="w-56"
+          :loading="bulkActionLoading"
+          @update:model-value="(v: string | null) => { bulkSegmentId = v; bulkAddToSegment(v) }"
+        />
+
+        <Select
+          :model-value="bulkCampaignId"
+          :options="availableCampaigns"
+          option-label="name"
+          option-value="id"
+          placeholder="Adicionar à campanha..."
+          filter
+          class="w-56"
+          :loading="bulkActionLoading"
+          @update:model-value="(v: string | null) => { bulkCampaignId = v; bulkAddToCampaign(v) }"
+        />
+
+        <Button
+          label="Limpar seleção"
+          icon="pi pi-times"
+          size="small"
+          text
+          severity="secondary"
+          @click="clearSelection"
+        />
+      </div>
+
       <!-- Table -->
       <DataTable
+        v-model:selection="selectedContacts"
         :value="contacts?.data"
         :loading="loading"
         striped-rows
         class="w-full"
+        data-key="id"
         empty-message="Nenhum contato encontrado"
       >
+        <Column selection-mode="multiple" style="width: 48px" :exportable="false" />
+
         <Column field="name" header="Nome" sortable>
           <template #body="{ data: contact }">
             <a @click="router.push(`/contacts/${contact.id}`)">

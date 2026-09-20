@@ -31,9 +31,10 @@ class SendWhatsAppChunkJob implements ShouldQueue
 
     public function handle(OpenWaService $whatsapp, TemplateVariableResolverService $resolver): void
     {
-        $campaign = Campaign::with('tenant')->findOrFail($this->campaignId);
+        $campaign = Campaign::with(['tenant', 'whatsappSession'])->findOrFail($this->campaignId);
         $tenant = $campaign->tenant ?? throw new \RuntimeException("Campaign {$campaign->id} has no tenant");
         $recipients = CampaignRecipient::with('contact')->findMany($this->recipientIds);
+        $sessionId = $campaign->whatsappSession?->session_id;
 
         $mediaUrl = null;
         $mediaMimetype = null;
@@ -76,7 +77,7 @@ class SendWhatsAppChunkJob implements ShouldQueue
                 $messageType = $campaign->whatsapp_message_type ?? WhatsAppMessageType::Text;
 
                 if ($messageType === WhatsAppMessageType::Text || ! $mediaUrl || ! $mediaMimetype) {
-                    $success = $whatsapp->sendText($phone, $message, (int) $campaign->tenant_id);
+                    $success = $whatsapp->sendText($phone, $message, (int) $campaign->tenant_id, $sessionId);
                 } else {
                     $success = $whatsapp->sendMedia(
                         $messageType,
@@ -86,6 +87,7 @@ class SendWhatsAppChunkJob implements ShouldQueue
                         $mediaMimetype,
                         caption: $message !== '' ? $message : null,
                         filename: basename($campaign->media_path),
+                        sessionId: $sessionId,
                     );
                 }
             } catch (\Throwable $e) {

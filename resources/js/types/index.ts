@@ -268,6 +268,8 @@ export interface Campaign {
   bodyHtml: string | null
   bodyText: string | null
   whatsappMessageType: WhatsAppMessageType | null
+  whatsappSessionId: string | null
+  whatsappSessionName: string | null
   mediaUrl: string | null
   segmentFilters: CampaignSegmentFilters | null
   totalRecipients: number
@@ -457,4 +459,13 @@ export interface CommunicationConfig {
   daily_whatsapp_limit: number
   batch_size: number
   batch_delay_seconds: number
+}
+
+export interface WhatsAppSession {
+  id: string              // ULID
+  name: string
+  sessionId: string
+  isActive: boolean
+  lastUsedAt: string | null
+  createdAt: string
 }

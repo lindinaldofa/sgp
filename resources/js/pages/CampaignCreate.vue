@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import api from '../utils/axios'
-import type { Tag as ContactTag, Campaign, Segment } from '../types'
+import type { Tag as ContactTag, Campaign, Segment, WhatsAppSession } from '../types'
 import WhatsAppTextToolbar from '../components/common/WhatsAppTextToolbar.vue'
 
 const router = useRouter()
@@ -19,6 +19,7 @@ const loadingCampaign = ref(false)
 
 const availableTags = ref<ContactTag[]>([])
 const availableSegments = ref<Segment[]>([])
+const availableSessions = ref<WhatsAppSession[]>([])
 
 const bodyTextareaEl = ref<HTMLTextAreaElement | null>(null)
 function setBodyTextareaRef(el: unknown) {
@@ -31,6 +32,7 @@ const mediaInputEl = ref<HTMLInputElement | null>(null)
 const step1 = ref({
   name: '',
   channel: 'email' as 'email' | 'sms' | 'whatsapp',
+  whatsapp_session_id: null as string | null,
 })
 
 // Step 2: Content
@@ -122,13 +124,22 @@ async function fetchSegments() {
   }
 }
 
+async function fetchSessions() {
+  try {
+    const { data } = await api.get<{ data: WhatsAppSession[] }>('/api/v1/whatsapp-sessions', { params: { active_only: true } })
+    availableSessions.value = data.data
+  } catch {
+    toast.add({ severity: 'error', summary: 'Erro', detail: 'Falha ao carregar sessões do WhatsApp', life: 3000 })
+  }
+}
+
 async function fetchCampaign(ulid: string) {
   loadingCampaign.value = true
   try {
     const { data } = await api.get<{ data: Campaign }>(`/api/v1/campaigns/${ulid}`)
     const campaign = data.data
 
-    step1.value = { name: campaign.name, channel: campaign.channel }
+    step1.value = { name: campaign.name, channel: campaign.channel, whatsapp_session_id: campaign.whatsappSessionId }
     step2.value = {
       subject: campaign.subject ?? '',
       body_text: campaign.bodyText ?? '',
@@ -153,11 +164,15 @@ async function fetchCampaign(ulid: string) {
 }
 
 onMounted(async () => {
-  await Promise.all([fetchTags(), fetchSegments()])
+  await Promise.all([fetchTags(), fetchSegments(), fetchSessions()])
   if (editUlid.value) await fetchCampaign(editUlid.value)
 })
 
-const canProceedStep1 = computed(() => step1.value.name.trim().length > 0)
+const canProceedStep1 = computed(() => {
+  if (!step1.value.name.trim().length) return false
+  if (step1.value.channel === 'whatsapp' && !step1.value.whatsapp_session_id) return false
+  return true
+})
 const canProceedStep2 = computed(() => {
   if (step1.value.channel === 'email') return step2.value.subject.trim().length > 0 && step2.value.body_html.trim().length > 0
   if (step1.value.channel === 'whatsapp' && step2.value.whatsapp_message_type !== 'text') {
@@ -168,7 +183,10 @@ const canProceedStep2 = computed(() => {
 
 function nextStep() {
   if (currentStep.value === 0 && !canProceedStep1.value) {
-    toast.add({ severity: 'warn', summary: 'Atenção', detail: 'Preencha o nome da campanha', life: 3000 })
+    const detail = step1.value.channel === 'whatsapp' && !step1.value.whatsapp_session_id
+      ? 'Selecione a sessão do WhatsApp que enviará a campanha'
+      : 'Preencha o nome da campanha'
+    toast.add({ severity: 'warn', summary: 'Atenção', detail, life: 3000 })
     return
   }
   if (currentStep.value === 1 && !canProceedStep2.value) {
@@ -218,6 +236,7 @@ async function handleSubmit() {
       body_text: step2.value.body_text,
       body_html: step1.value.channel === 'email' ? step2.value.body_html || undefined : undefined,
       whatsapp_message_type: step1.value.channel === 'whatsapp' ? step2.value.whatsapp_message_type : undefined,
+      whatsapp_session_id: step1.value.channel === 'whatsapp' ? step1.value.whatsapp_session_id : undefined,
       segment_filters: segmentFilters,
     }
 
@@ -323,6 +342,27 @@ async function handleSubmit() {
               <p class="font-medium text-surface-800">{{ opt.label }}</p>
               <p class="text-xs text-surface-500 mt-1">{{ opt.description }}</p>
             </div>
+          </div>
+        </div>
+
+        <div v-if="step1.channel === 'whatsapp'" class="p-card p-5">
+          <h2 class="font-semibold text-surface-700 mb-4">Sessão do WhatsApp</h2>
+          <div class="flex flex-col gap-1">
+            <label class="text-sm font-medium text-surface-700">
+              Número/sessão que enviará a campanha <span class="text-red-500">*</span>
+            </label>
+            <Select
+              v-model="step1.whatsapp_session_id"
+              :options="availableSessions"
+              option-label="name"
+              option-value="id"
+              placeholder="Selecione a sessão"
+              class="w-full"
+            />
+            <p v-if="!availableSessions.length" class="text-xs text-surface-400">
+              Nenhuma sessão do WhatsApp cadastrada.
+              <router-link to="/settings" class="text-primary">Cadastre uma em Configurações</router-link>.
+            </p>
           </div>
         </div>
 
@@ -543,6 +583,12 @@ async function handleSubmit() {
             <div v-if="step1.channel === 'email'" class="flex justify-between">
               <span class="text-surface-500">Assunto:</span>
               <span class="font-medium">{{ step2.subject || '—' }}</span>
+            </div>
+            <div v-if="step1.channel === 'whatsapp'" class="flex justify-between">
+              <span class="text-surface-500">Sessão:</span>
+              <span class="font-medium">
+                {{ availableSessions.find((s) => s.id === step1.whatsapp_session_id)?.name || '—' }}
+              </span>
             </div>
             <div class="flex justify-between">
               <span class="text-surface-500">Audiência:</span>

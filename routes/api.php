@@ -34,6 +34,7 @@ use App\Http\Controllers\TeamController;
 use App\Http\Controllers\TerritoryController;
 use App\Http\Controllers\UnsubscribeController;
 use App\Http\Controllers\WebhookController;
+use App\Http\Controllers\WhatsAppSessionController;
 use Illuminate\Support\Facades\Route;
 
 // ── Auth (público) ──────────────────────────────────────────────
@@ -187,6 +188,12 @@ Route::middleware(['auth:sanctum', 'tenant.active'])->prefix('v1')->group(functi
     Route::get('communication-config', [CommunicationConfigController::class, 'show']);
     Route::put('communication-config', [CommunicationConfigController::class, 'update']);
     Route::post('communication-config/test', [CommunicationConfigController::class, 'test']);
+    Route::prefix('whatsapp-sessions')->group(function () {
+        Route::get('/', [WhatsAppSessionController::class, 'index']);
+        Route::post('/', [WhatsAppSessionController::class, 'store']);
+        Route::put('{ulid}', [WhatsAppSessionController::class, 'update']);
+        Route::delete('{ulid}', [WhatsAppSessionController::class, 'destroy']);
+    });
     Route::apiResource('automation-rules', AutomationRuleController::class)->except(['show']);
 
     // Módulo 05: Proposições

@@ -16,9 +16,16 @@ use Illuminate\Support\Facades\Log;
  */
 class OpenWaService
 {
-    public function sendText(string $phone, string $message, int $tenantId): bool
+    /**
+     * @param string|null $sessionId Explicit OpenWA session to send through (e.g. a
+     *                               campaign's chosen WhatsApp number). Falls back to the tenant's default
+     *                               session (`communication_configs.openwa_session_id`) when omitted — used
+     *                               by paths with no session selection of their own, like the legacy
+     *                               template-based "new contact" automation and the Settings test button.
+     */
+    public function sendText(string $phone, string $message, int $tenantId, ?string $sessionId = null): bool
     {
-        return $this->send($tenantId, $phone, 'send-text', ['text' => $message]);
+        return $this->send($tenantId, $phone, 'send-text', ['text' => $message], $sessionId);
     }
 
     /**
@@ -36,6 +43,7 @@ class OpenWaService
         string $mimetype,
         ?string $caption = null,
         ?string $filename = null,
+        ?string $sessionId = null,
     ): bool {
         $endpoint = match ($type) {
             WhatsAppMessageType::Image => 'send-image',
@@ -52,15 +60,16 @@ class OpenWaService
             'filename' => $filename,
         ], fn ($value) => $value !== null && $value !== '');
 
-        return $this->send($tenantId, $phone, $endpoint, $payload);
+        return $this->send($tenantId, $phone, $endpoint, $payload, $sessionId);
     }
 
     /** @param array<string, mixed> $payload */
-    private function send(int $tenantId, string $phone, string $endpoint, array $payload): bool
+    private function send(int $tenantId, string $phone, string $endpoint, array $payload, ?string $sessionId = null): bool
     {
         $config = CommunicationConfig::where('tenant_id', $tenantId)->first();
+        $effectiveSessionId = $sessionId ?: $config?->openwa_session_id;
 
-        if (! $config?->openwa_base_url || ! $config->openwa_api_key || ! $config->openwa_session_id) {
+        if (! $config?->openwa_base_url || ! $config->openwa_api_key || ! $effectiveSessionId) {
             Log::warning("OpenWA not configured for tenant {$tenantId}");
 
             return false;
@@ -75,7 +84,7 @@ class OpenWaService
 
         try {
             $response = Http::withHeader('X-API-Key', $config->openwa_api_key)
-                ->post("{$baseUrl}/api/sessions/{$config->openwa_session_id}/messages/{$endpoint}", [
+                ->post("{$baseUrl}/api/sessions/{$effectiveSessionId}/messages/{$endpoint}", [
                     'chatId' => $chatId,
                     ...$payload,
                 ]);

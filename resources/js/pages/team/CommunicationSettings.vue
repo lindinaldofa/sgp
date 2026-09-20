@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useToast } from 'primevue/usetoast'
+import { useConfirm } from 'primevue/useconfirm'
 import api from '../../utils/axios'
-import type { CommunicationConfig } from '../../types'
+import type { CommunicationConfig, WhatsAppSession } from '../../types'
 
 const toast = useToast()
+const confirm = useConfirm()
 
 const loading = ref(true)
 const saving = ref(false)
@@ -12,6 +14,13 @@ const testingWhatsapp = ref(false)
 const testingEmail = ref(false)
 
 const hasOpenwaConfigured = ref(false)
+
+const sessions = ref<WhatsAppSession[]>([])
+const loadingSessions = ref(false)
+const savingSession = ref(false)
+const newSessionName = ref('')
+const newSessionId = ref('')
+const testWhatsappSessionId = ref<string | null>(null)
 
 const form = ref({
   ses_from_email: '',
@@ -99,7 +108,11 @@ async function sendTest(channel: 'whatsapp' | 'email') {
   const busyRef = channel === 'whatsapp' ? testingWhatsapp : testingEmail
   busyRef.value = true
   try {
-    await api.post('/api/v1/communication-config/test', { channel, to })
+    await api.post('/api/v1/communication-config/test', {
+      channel,
+      to,
+      whatsapp_session_id: channel === 'whatsapp' ? testWhatsappSessionId.value || undefined : undefined,
+    })
     toast.add({ severity: 'success', summary: 'Enviado', detail: 'Mensagem de teste enviada com sucesso', life: 3000 })
   } catch (e) {
     const msg = (e as { response?: { data?: { message?: string } } }).response?.data?.message || 'Falha ao enviar teste'
@@ -109,7 +122,71 @@ async function sendTest(channel: 'whatsapp' | 'email') {
   }
 }
 
-onMounted(fetchConfig)
+async function fetchSessions() {
+  loadingSessions.value = true
+  try {
+    const { data } = await api.get<{ data: WhatsAppSession[] }>('/api/v1/whatsapp-sessions')
+    sessions.value = data.data
+  } catch {
+    toast.add({ severity: 'error', summary: 'Erro', detail: 'Falha ao carregar sessões do WhatsApp', life: 3000 })
+  } finally {
+    loadingSessions.value = false
+  }
+}
+
+async function addSession() {
+  if (!newSessionName.value.trim() || !newSessionId.value.trim()) {
+    toast.add({ severity: 'warn', summary: 'Atenção', detail: 'Informe nome e ID da sessão', life: 3000 })
+    return
+  }
+  savingSession.value = true
+  try {
+    await api.post('/api/v1/whatsapp-sessions', { name: newSessionName.value, session_id: newSessionId.value })
+    toast.add({ severity: 'success', summary: 'Sucesso', detail: 'Sessão adicionada', life: 3000 })
+    newSessionName.value = ''
+    newSessionId.value = ''
+    await fetchSessions()
+  } catch (e) {
+    const msg = (e as { response?: { data?: { message?: string } } }).response?.data?.message || 'Falha ao adicionar sessão'
+    toast.add({ severity: 'error', summary: 'Erro', detail: msg, life: 4000 })
+  } finally {
+    savingSession.value = false
+  }
+}
+
+async function toggleSessionActive(session: WhatsAppSession) {
+  try {
+    await api.put(`/api/v1/whatsapp-sessions/${session.id}`, { is_active: !session.isActive })
+    await fetchSessions()
+  } catch {
+    toast.add({ severity: 'error', summary: 'Erro', detail: 'Falha ao atualizar sessão', life: 3000 })
+  }
+}
+
+function confirmDeleteSession(session: WhatsAppSession) {
+  confirm.require({
+    message: `Excluir a sessão "${session.name}"?`,
+    header: 'Confirmar exclusão',
+    icon: 'pi pi-exclamation-triangle',
+    accept: () => deleteSession(session),
+  })
+}
+
+async function deleteSession(session: WhatsAppSession) {
+  try {
+    await api.delete(`/api/v1/whatsapp-sessions/${session.id}`)
+    toast.add({ severity: 'success', summary: 'Sucesso', detail: 'Sessão excluída', life: 3000 })
+    await fetchSessions()
+  } catch (e) {
+    const msg = (e as { response?: { data?: { message?: string } } }).response?.data?.message || 'Falha ao excluir sessão'
+    toast.add({ severity: 'error', summary: 'Erro', detail: msg, life: 4000 })
+  }
+}
+
+onMounted(() => {
+  void fetchConfig()
+  void fetchSessions()
+})
 </script>
 
 <template>
@@ -164,8 +241,12 @@ onMounted(fetchConfig)
             <InputText v-model="form.openwa_base_url" placeholder="https://painel.seuservidor.com.br" class="w-full" />
           </div>
           <div class="flex flex-col gap-1">
-            <label class="text-sm font-medium text-surface-700">Session ID</label>
+            <label class="text-sm font-medium text-surface-700">Sessão padrão (fallback)</label>
             <InputText v-model="form.openwa_session_id" placeholder="default" class="w-full" />
+            <p class="text-xs text-surface-400">
+              Usada apenas quando não há uma sessão específica escolhida (ex. automações antigas). Para
+              campanhas, escolha a sessão logo abaixo, em "Sessões do WhatsApp".
+            </p>
           </div>
           <div class="flex flex-col gap-1">
             <label class="text-sm font-medium text-surface-700">API Key</label>
@@ -191,6 +272,18 @@ onMounted(fetchConfig)
             <label class="text-sm font-medium text-surface-700">Testar envio (número com DDD)</label>
             <InputText v-model="testWhatsappTo" placeholder="11988887777" class="w-full" />
           </div>
+          <div class="flex flex-col gap-1 min-w-[12rem]">
+            <label class="text-sm font-medium text-surface-700">Sessão (opcional)</label>
+            <Select
+              v-model="testWhatsappSessionId"
+              :options="sessions"
+              option-label="name"
+              option-value="id"
+              show-clear
+              placeholder="Sessão padrão"
+              class="w-full"
+            />
+          </div>
           <Button
             label="Enviar teste"
             icon="pi pi-send"
@@ -200,6 +293,64 @@ onMounted(fetchConfig)
             @click="sendTest('whatsapp')"
           />
         </div>
+      </div>
+
+      <!-- Sessões do WhatsApp -->
+      <div class="p-card p-5">
+        <h3 class="font-semibold text-surface-700 mb-1 pb-2 border-b border-surface-200">
+          <i class="pi pi-mobile mr-1 text-green-600" /> Sessões do WhatsApp
+        </h3>
+        <p class="text-xs text-surface-500 mb-4">
+          Um mesmo servidor OpenWA pode manter várias sessões (números de WhatsApp) conectadas ao mesmo
+          tempo. Cadastre aqui cada sessão já conectada no painel do OpenWA — ao criar uma campanha de
+          WhatsApp, será necessário escolher qual delas usar para o envio.
+        </p>
+
+        <div class="flex items-end gap-2 flex-wrap mb-4">
+          <div class="flex flex-col gap-1 flex-1 min-w-[10rem]">
+            <label class="text-sm font-medium text-surface-700">Nome</label>
+            <InputText v-model="newSessionName" placeholder="Ex: Gabinete" class="w-full" />
+          </div>
+          <div class="flex flex-col gap-1 flex-1 min-w-[10rem]">
+            <label class="text-sm font-medium text-surface-700">Session ID (no OpenWA)</label>
+            <InputText v-model="newSessionId" placeholder="Ex: gabinete-principal" class="w-full" />
+          </div>
+          <Button
+            label="Adicionar"
+            icon="pi pi-plus"
+            size="small"
+            :loading="savingSession"
+            @click="addSession"
+          />
+        </div>
+
+        <DataTable :value="sessions" :loading="loadingSessions" striped-rows empty-message="Nenhuma sessão cadastrada">
+          <Column field="name" header="Nome" />
+          <Column field="sessionId" header="Session ID" />
+          <Column header="Status" style="width: 120px">
+            <template #body="{ data: session }: { data: WhatsAppSession }">
+              <Tag
+                :value="session.isActive ? 'Ativa' : 'Inativa'"
+                :severity="session.isActive ? 'success' : 'secondary'"
+                class="cursor-pointer"
+                @click="toggleSessionActive(session)"
+              />
+            </template>
+          </Column>
+          <Column header="" style="width: 60px">
+            <template #body="{ data: session }: { data: WhatsAppSession }">
+              <Button
+                icon="pi pi-trash"
+                size="small"
+                text
+                rounded
+                severity="danger"
+                title="Excluir"
+                @click="confirmDeleteSession(session)"
+              />
+            </template>
+          </Column>
+        </DataTable>
       </div>
 
       <!-- Email / SES -->

@@ -32,6 +32,8 @@ class CampaignResource extends JsonResource
             'bodyHtml' => $this->body_html,
             'bodyText' => $this->body_text,
             'whatsappMessageType' => $this->whatsapp_message_type?->value,
+            'whatsappSessionId' => $this->whatsappSession?->ulid,
+            'whatsappSessionName' => $this->whatsappSession?->name,
             'mediaUrl' => $this->media_path ? url(Storage::url($this->media_path)) : null,
             'segmentFilters' => $this->segmentFiltersForOutput(),
             'totalRecipients' => (int) $this->total_recipients,

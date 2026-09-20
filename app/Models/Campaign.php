@@ -28,6 +28,7 @@ class Campaign extends Model
         'body_html',
         'body_text',
         'whatsapp_message_type',
+        'whatsapp_session_id',
         'media_path',
         'segment_filters',
         'total_recipients',
@@ -74,5 +75,11 @@ class Campaign extends Model
     public function recipients(): HasMany
     {
         return $this->hasMany(CampaignRecipient::class);
+    }
+
+    /** @return BelongsTo<WhatsAppSession, $this> */
+    public function whatsappSession(): BelongsTo
+    {
+        return $this->belongsTo(WhatsAppSession::class);
     }
 }

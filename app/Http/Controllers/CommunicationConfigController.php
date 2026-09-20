@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\CampaignChannel;
 use App\Models\CommunicationConfig;
+use App\Models\WhatsAppSession;
 use App\Services\OpenWaService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -52,6 +53,7 @@ class CommunicationConfigController extends Controller
         $data = $request->validate([
             'channel' => ['required', Rule::enum(CampaignChannel::class)],
             'to' => ['required', 'string', 'max:255'],
+            'whatsapp_session_id' => ['nullable', 'string', 'exists:whatsapp_sessions,ulid'],
         ]);
 
         $tenantId = $this->typedUser($request)->tenant_id;
@@ -60,11 +62,16 @@ class CommunicationConfigController extends Controller
             return response()->json(['message' => 'Teste de SMS ainda não é suportado por este endpoint.'], 422);
         }
 
+        $sessionId = isset($data['whatsapp_session_id'])
+            ? WhatsAppSession::where('ulid', $data['whatsapp_session_id'])->value('session_id')
+            : null;
+
         $success = match (CampaignChannel::from($data['channel'])) {
             CampaignChannel::WhatsApp => $whatsapp->sendText(
                 $data['to'],
                 'Mensagem de teste do SGP — sua integração com o OpenWA está funcionando.',
                 $tenantId,
+                $sessionId,
             ),
             CampaignChannel::Email => $this->sendTestEmail($tenantId, $data['to']),
             CampaignChannel::Sms => false,

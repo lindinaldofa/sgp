@@ -202,6 +202,9 @@ onMounted(async () => {
             />
           </div>
           <p v-if="campaign.subject" class="text-sm text-surface-500 mt-1">{{ campaign.subject }}</p>
+          <p v-if="campaign.channel === 'whatsapp' && campaign.whatsappSessionName" class="text-sm text-surface-500 mt-1">
+            <i class="pi pi-mobile mr-1" />Sessão: {{ campaign.whatsappSessionName }}
+          </p>
         </div>
         <div class="flex items-center gap-2">
           <Button

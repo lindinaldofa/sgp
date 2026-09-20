@@ -20,6 +20,7 @@ use App\Models\CampaignRecipient;
 use App\Models\CommunicationConfig;
 use App\Models\Contact;
 use App\Models\Segment;
+use App\Models\WhatsAppSession;
 use Illuminate\Bus\Batch;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -33,6 +34,7 @@ class CampaignController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $query = Campaign::query()
+            ->with('whatsappSession')
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->status))
             ->when($request->filled('channel'), fn ($q) => $q->where('channel', $request->channel))
             ->latest()
@@ -50,12 +52,18 @@ class CampaignController extends Controller
             'body_html' => ['nullable', 'string'],
             'body_text' => ['nullable', 'string'],
             'whatsapp_message_type' => ['nullable', Rule::enum(WhatsAppMessageType::class)],
+            'whatsapp_session_id' => ['nullable', 'string', 'exists:whatsapp_sessions,ulid'],
             'segment_filters' => ['nullable', 'array'],
         ]);
+
+        if (CampaignChannel::from($data['channel']) === CampaignChannel::WhatsApp && empty($data['whatsapp_session_id'])) {
+            return response()->json(['message' => 'Selecione a sessão do WhatsApp que será usada para o envio.'], 422);
+        }
 
         $data['status'] = CampaignStatus::Draft;
         $data['user_id'] = $this->typedUser($request)->id;
         $data = $this->resolveSegmentIds($data);
+        $data = $this->resolveWhatsappSessionId($data);
 
         $campaign = Campaign::create($data);
 
@@ -66,12 +74,12 @@ class CampaignController extends Controller
 
     public function show(string $ulid): CampaignResource
     {
-        $campaign = Campaign::where('ulid', $ulid)->withCount('recipients')->firstOrFail();
+        $campaign = Campaign::where('ulid', $ulid)->with('whatsappSession')->withCount('recipients')->firstOrFail();
 
         return new CampaignResource($campaign);
     }
 
-    public function update(Request $request, string $ulid): CampaignResource
+    public function update(Request $request, string $ulid): JsonResponse
     {
         $campaign = Campaign::where('ulid', $ulid)->firstOrFail();
 
@@ -84,13 +92,24 @@ class CampaignController extends Controller
             'body_html' => ['nullable', 'string'],
             'body_text' => ['nullable', 'string'],
             'whatsapp_message_type' => ['nullable', Rule::enum(WhatsAppMessageType::class)],
+            'whatsapp_session_id' => ['nullable', 'string', 'exists:whatsapp_sessions,ulid'],
             'segment_filters' => ['nullable', 'array'],
         ]);
 
+        $effectiveChannel = CampaignChannel::from($data['channel'] ?? $campaign->channel->value);
+        $hasSession = array_key_exists('whatsapp_session_id', $data)
+            ? ! empty($data['whatsapp_session_id'])
+            : $campaign->whatsapp_session_id !== null;
+
+        if ($effectiveChannel === CampaignChannel::WhatsApp && ! $hasSession) {
+            return response()->json(['message' => 'Selecione a sessão do WhatsApp que será usada para o envio.'], 422);
+        }
+
         $data = $this->resolveSegmentIds($data);
+        $data = $this->resolveWhatsappSessionId($data);
         $campaign->update($data);
 
-        return new CampaignResource($campaign->fresh());
+        return response()->json(new CampaignResource($campaign->fresh()));
     }
 
     /**
@@ -105,6 +124,22 @@ class CampaignController extends Controller
     {
         if (($data['segment_filters']['audience_type'] ?? null) === 'segment' && ! empty($data['segment_filters']['segment_ids'])) {
             $data['segment_filters']['segment_ids'] = Segment::whereIn('ulid', $data['segment_filters']['segment_ids'])->pluck('id')->all();
+        }
+
+        return $data;
+    }
+
+    /**
+     * The API always identifies WhatsApp sessions by ULID; stored as the
+     * internal numeric FK to match the `campaigns.whatsapp_session_id` column.
+     *
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>
+     */
+    private function resolveWhatsappSessionId(array $data): array
+    {
+        if (! empty($data['whatsapp_session_id'])) {
+            $data['whatsapp_session_id'] = WhatsAppSession::where('ulid', $data['whatsapp_session_id'])->value('id');
         }
 
         return $data;

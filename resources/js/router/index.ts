@@ -55,6 +55,12 @@ const routes: RouteRecordRaw[] = [
         meta: { permission: 'contacts' as AppPermission },
       },
       {
+        path: 'contacts/import',
+        name: 'contacts-import',
+        component: () => import('../pages/contacts/ContactsImport.vue'),
+        meta: { permission: 'contacts' as AppPermission },
+      },
+      {
         path: 'contacts/:ulid',
         name: 'contacts-show',
         component: () => import('../pages/contacts/ContactsShow.vue'),

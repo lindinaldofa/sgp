@@ -3,7 +3,7 @@ import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import api from '../../utils/axios'
-import type { SGPForm, FormField, FormFieldType, Tag as ContactTag } from '../../types'
+import type { SGPForm, FormField, FormFieldType, Tag as ContactTag, CustomField } from '../../types'
 
 const route  = useRoute()
 const router = useRouter()
@@ -35,6 +35,7 @@ const settings = reactive({
 
 const formUlid = ref<string | null>(null)
 const availableTags = ref<ContactTag[]>([])
+const availableCustomFields = ref<CustomField[]>([])
 
 async function fetchTags() {
   try {
@@ -42,6 +43,15 @@ async function fetchTags() {
     availableTags.value = data.data
   } catch {
     toast.add({ severity: 'error', summary: 'Erro', detail: 'Falha ao carregar tags', life: 3000 })
+  }
+}
+
+async function fetchCustomFields() {
+  try {
+    const { data } = await api.get<{ data: CustomField[] }>('/api/v1/custom-fields')
+    availableCustomFields.value = data.data.filter((f) => f.isActive)
+  } catch {
+    toast.add({ severity: 'error', summary: 'Erro', detail: 'Falha ao carregar campos personalizados', life: 3000 })
   }
 }
 
@@ -88,7 +98,7 @@ const paletteGroups = computed(() => {
 })
 
 // ──── Contact mapping options ──────────────────────────────────────
-const contactMappings = [
+const nativeContactMappings = [
   { label: 'Não mapear (campo extra)', value: null },
   { label: 'Nome',            value: 'name' },
   { label: 'E-mail',          value: 'email' },
@@ -110,6 +120,14 @@ const contactMappings = [
   { label: 'Estado',          value: 'state' },
   { label: 'Consentimento LGPD (use com um campo checkbox)', value: 'lgpd_consent' },
 ]
+
+// Campos personalizados (definidos em Configurações) entram como alvos extras
+// de mapeamento, prefixados com "custom." para o backend saber que não é uma
+// coluna nativa do contato.
+const contactMappings = computed(() => [
+  ...nativeContactMappings,
+  ...availableCustomFields.value.map((f) => ({ label: `${f.label} (personalizado)`, value: `custom.${f.key}` })),
+])
 
 // ──── Helpers ──────────────────────────────────────────────────────
 function isLayout(type: FormFieldType) {
@@ -298,6 +316,7 @@ watch(() => settings.name, (val) => {
 
 onMounted(() => {
   void fetchTags()
+  void fetchCustomFields()
   void loadForm()
 })
 </script>

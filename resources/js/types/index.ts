@@ -89,6 +89,23 @@ export interface Tag {
   color: string
 }
 
+export type CustomFieldType = 'text' | 'number' | 'date' | 'select' | 'checkbox' | 'textarea'
+
+export interface CustomFieldOption {
+  label: string
+  value: string
+}
+
+export interface CustomField {
+  id: number
+  key: string
+  label: string
+  type: CustomFieldType
+  options: CustomFieldOption[]
+  isActive: boolean
+  sortOrder: number
+}
+
 export interface Contact {
   id: string                    // ULID
   name: string
@@ -118,8 +135,12 @@ export interface Contact {
   electoralZone: string | null
   electoralSection: string | null
   leaderId: string | null
+  leaderName?: string | null
+  createdByName?: string | null
   lgpdConsent: boolean
   lgpdConsentAt: string | null
+  unsubscribedAt: string | null
+  customData: Record<string, string | number | boolean | null>
   tags: Tag[]
   createdAt: string
   updatedAt: string

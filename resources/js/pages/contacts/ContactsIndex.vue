@@ -1,10 +1,17 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
 import api from '../../utils/axios'
-import type { Contact, PaginatedResponse, Tag as ContactTag } from '../../types'
+import type { Contact, PaginatedResponse, Tag as ContactTag, CustomField } from '../../types'
+import {
+  DEFAULT_CONTACT_COLUMNS,
+  CUSTOM_FIELD_COLUMN_PREFIX,
+  buildAvailableColumns,
+  formatNativeColumnValue,
+  formatCustomColumnValue,
+} from '../../utils/contactColumns'
 
 const router = useRouter()
 const toast = useToast()
@@ -17,6 +24,15 @@ const selectedTagIds = ref<number[]>([])
 const availableTags = ref<ContactTag[]>([])
 const loading = ref(false)
 const currentPage = ref(1)
+const customFields = ref<CustomField[]>([])
+const columnKeys = ref<string[]>([...DEFAULT_CONTACT_COLUMNS])
+
+const availableColumns = computed(() => buildAvailableColumns(customFields.value))
+const visibleColumns = computed(() =>
+  columnKeys.value
+    .map((key) => availableColumns.value.find((c) => c.key === key))
+    .filter((c): c is { key: string; label: string } => !!c)
+)
 
 const typeOptions = [
   { label: 'Todos', value: null },
@@ -79,6 +95,26 @@ async function fetchTags() {
   }
 }
 
+async function fetchCustomFields() {
+  try {
+    const { data } = await api.get<{ data: CustomField[] }>('/api/v1/custom-fields')
+    customFields.value = data.data
+  } catch {
+    // silencioso — colunas de campos personalizados simplesmente não aparecerão
+  }
+}
+
+async function fetchColumnPreference() {
+  try {
+    const { data } = await api.get<{ contacts_list_columns?: string[] }>('/api/v1/team/settings')
+    if (data.contacts_list_columns?.length) {
+      columnKeys.value = data.contacts_list_columns
+    }
+  } catch {
+    // mantém as colunas padrão em caso de falha
+  }
+}
+
 function onPageChange(event: { page: number }) {
   currentPage.value = event.page + 1
   void fetchContacts()
@@ -112,6 +148,8 @@ async function deleteContact(contact: Contact) {
 onMounted(() => {
   void fetchContacts()
   void fetchTags()
+  void fetchCustomFields()
+  void fetchColumnPreference()
 })
 
 watch([search, selectedType, selectedTagIds], () => {
@@ -129,11 +167,20 @@ watch([search, selectedType, selectedTagIds], () => {
           {{ contacts?.meta?.total?.toLocaleString('pt-BR') ?? '—' }} contatos cadastrados
         </p>
       </div>
-      <Button
-        label="Novo"
-        icon="pi pi-plus"
-        @click="router.push('/contacts/create')"
-      />
+      <div class="flex items-center gap-2">
+        <Button
+          label="Importar"
+          icon="pi pi-upload"
+          severity="secondary"
+          outlined
+          @click="router.push('/contacts/import')"
+        />
+        <Button
+          label="Novo"
+          icon="pi pi-plus"
+          @click="router.push('/contacts/create')"
+        />
+      </div>
     </div>
 
     <div class="p-card">
@@ -194,48 +241,46 @@ watch([search, selectedType, selectedTagIds], () => {
           </template>
         </Column>
 
-        <Column field="type" header="Tipo">
-          <template #body="{ data: contact }">
-            <Tag :value="typeTags[contact.type as string] || '—'" severity="info" />
-          </template>
-        </Column>
+        <Column v-for="col in visibleColumns" :key="col.key" :header="col.label">
+          <template #body="{ data: contact }: { data: Contact }">
+            <Tag v-if="col.key === 'type'" :value="typeTags[contact.type as string] || '—'" severity="info" />
 
-        <Column header="Cidade / Estado">
-          <template #body="{ data: contact }">
-            <span v-if="contact.city || contact.state" class="text-sm text-surface-600">
-              {{ [contact.city, contact.state].filter(Boolean).join(' / ') }}
-            </span>
-            <span v-else class="text-surface-400 text-sm">—</span>
-          </template>
-        </Column>
-
-        <Column header="Tags">
-          <template #body="{ data: contact }">
-            <div v-if="contact.tags?.length" class="flex flex-wrap gap-1">
-              <Tag
-                v-for="tag in contact.tags"
-                :key="tag.id"
-                :value="tag.name"
-                :style="{ backgroundColor: tag.color || undefined }"
-              />
+            <div v-else-if="col.key === 'tags'" class="flex flex-wrap gap-1">
+              <template v-if="contact.tags?.length">
+                <Tag
+                  v-for="tag in contact.tags"
+                  :key="tag.id"
+                  :value="tag.name"
+                  :style="{ backgroundColor: tag.color || undefined }"
+                />
+              </template>
+              <span v-else class="text-surface-400 text-sm">—</span>
             </div>
-            <span v-else class="text-surface-400 text-sm">—</span>
-          </template>
-        </Column>
 
-        <Column field="whatsapp" header="WhatsApp">
-          <template #body="{ data: contact }">
-            <a :href="GetWhatsApp(contact.whatsapp)" target="_blank"><span class="text-sm">{{ contact.whatsapp || '—' }}</span><Button v-if="contact.whatsapp" icon="pi pi-whatsapp" class="ml-2" size="small" rounded /></a>
-          </template>
-        </Column>
+            <a v-else-if="col.key === 'whatsapp'" :href="GetWhatsApp(contact.whatsapp)" target="_blank">
+              <span class="text-sm">{{ contact.whatsapp || '—' }}</span>
+              <Button v-if="contact.whatsapp" icon="pi pi-whatsapp" class="ml-2" size="small" rounded />
+            </a>
 
-        <Column field="engagementScore" header="Engajamento">
-          <template #body="{ data: contact }">
             <Tag
-              v-if="contact.engagementScore"
-              :value="engagementLabels[contact.engagementScore]"
-              :severity="engagementSeverity[contact.engagementScore]"
+              v-else-if="col.key === 'engagementScore'"
+              :value="contact.engagementScore ? engagementLabels[contact.engagementScore] : '—'"
+              :severity="contact.engagementScore ? engagementSeverity[contact.engagementScore] : 'secondary'"
             />
+
+            <Tag
+              v-else-if="col.key === 'lgpdConsent'"
+              :value="contact.lgpdConsent ? 'Sim' : 'Não'"
+              :severity="contact.lgpdConsent ? 'success' : 'danger'"
+            />
+
+            <span v-else-if="col.key.startsWith(CUSTOM_FIELD_COLUMN_PREFIX)" class="text-sm text-surface-600">
+              {{ formatCustomColumnValue(contact, col.key) }}
+            </span>
+
+            <span v-else class="text-sm text-surface-600">
+              {{ formatNativeColumnValue(contact, col.key) }}
+            </span>
           </template>
         </Column>
 

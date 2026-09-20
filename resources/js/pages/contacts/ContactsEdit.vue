@@ -3,7 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import api from '../../utils/axios'
-import type { Contact } from '../../types'
+import type { Contact, Tag as ContactTag, CustomField } from '../../types'
 
 const route = useRoute()
 const router = useRouter()
@@ -13,6 +13,11 @@ const ulid = route.params.ulid as string
 const loading = ref(true)
 const saving = ref(false)
 const loadingCep = ref(false)
+
+const availableTags = ref<ContactTag[]>([])
+const selectedTagIds = ref<number[]>([])
+const customFields = ref<CustomField[]>([])
+const customData = ref<Record<string, string | number | boolean | null>>({})
 
 async function lookupCep() {
   const digits = form.value.zip_code.replace(/\D/g, '')
@@ -89,11 +94,26 @@ const engagementOptions = [
   { label: '5 - Muito alto', value: 5 },
 ]
 
+async function fetchTagsAndCustomFields() {
+  try {
+    const [tagsRes, fieldsRes] = await Promise.all([
+      api.get<{ data: ContactTag[] }>('/api/v1/tags'),
+      api.get<{ data: CustomField[] }>('/api/v1/custom-fields'),
+    ])
+    availableTags.value = tagsRes.data.data
+    customFields.value = fieldsRes.data.data.filter((f) => f.isActive)
+  } catch {
+    toast.add({ severity: 'error', summary: 'Erro', detail: 'Falha ao carregar tags/campos personalizados', life: 3000 })
+  }
+}
+
 async function fetchContact() {
   loading.value = true
   try {
     const { data } = await api.get<{ data: Contact }>(`/api/v1/contacts/${ulid}`)
     const c = data.data
+    selectedTagIds.value = c.tags.map((t) => t.id)
+    customData.value = { ...c.customData }
     form.value = {
       name: c.name,
       email: c.email ?? '',
@@ -141,6 +161,8 @@ async function handleSubmit() {
       birth_date: form.value.birth_date || undefined,
       gender: form.value.gender || undefined,
       state: form.value.state || undefined,
+      tag_ids: selectedTagIds.value,
+      custom_data: customData.value,
     })
     toast.add({ severity: 'success', summary: 'Sucesso', detail: 'Contato atualizado', life: 3000 })
     await router.push(`/contacts/${ulid}`)
@@ -152,7 +174,10 @@ async function handleSubmit() {
   }
 }
 
-onMounted(fetchContact)
+onMounted(() => {
+  void fetchTagsAndCustomFields()
+  void fetchContact()
+})
 </script>
 
 <template>
@@ -370,6 +395,19 @@ onMounted(fetchContact)
             </div>
 
             <div class="md:col-span-2 flex flex-col gap-1">
+              <label class="text-sm font-medium text-surface-700">Tags</label>
+              <MultiSelect
+                v-model="selectedTagIds"
+                :options="availableTags"
+                option-label="name"
+                option-value="id"
+                placeholder="Selecionar tags"
+                filter
+                class="w-full"
+              />
+            </div>
+
+            <div class="md:col-span-2 flex flex-col gap-1">
               <label class="text-sm font-medium text-surface-700">Notas internas</label>
               <Textarea
                 v-model="form.notes"
@@ -386,6 +424,69 @@ onMounted(fetchContact)
                   Contato autorizou o uso de seus dados (LGPD)
                 </label>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Custom Fields -->
+        <div v-if="customFields.length" class="p-card p-5">
+          <h2 class="font-semibold text-surface-700 mb-4 pb-2 border-b border-surface-200">
+            Campos personalizados
+          </h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div
+              v-for="field in customFields"
+              :key="field.key"
+              class="flex flex-col gap-1"
+              :class="{ 'md:col-span-2': field.type === 'textarea' }"
+            >
+              <label class="text-sm font-medium text-surface-700">{{ field.label }}</label>
+              <InputNumber
+                v-if="field.type === 'number'"
+                :model-value="(customData[field.key] as number | null)"
+                class="w-full"
+                @update:model-value="(v) => (customData[field.key] = v ?? null)"
+              />
+              <InputText
+                v-else-if="field.type === 'date'"
+                :model-value="(customData[field.key] as string | null) ?? ''"
+                type="date"
+                class="w-full"
+                @update:model-value="(v) => (customData[field.key] = v ?? null)"
+              />
+              <Select
+                v-else-if="field.type === 'select'"
+                :model-value="customData[field.key]"
+                :options="field.options"
+                option-label="label"
+                option-value="value"
+                placeholder="Selecionar"
+                show-clear
+                class="w-full"
+                @update:model-value="(v) => (customData[field.key] = v ?? null)"
+              />
+              <div v-else-if="field.type === 'checkbox'" class="flex items-center gap-2 pt-1">
+                <Checkbox
+                  :model-value="(customData[field.key] as boolean | null) ?? false"
+                  :binary="true"
+                  :input-id="`cf-${field.key}`"
+                  @update:model-value="(v) => (customData[field.key] = v ?? null)"
+                />
+                <label :for="`cf-${field.key}`" class="text-sm text-surface-700 cursor-pointer">{{ field.label }}</label>
+              </div>
+              <Textarea
+                v-else-if="field.type === 'textarea'"
+                :model-value="(customData[field.key] as string | null) ?? ''"
+                rows="3"
+                class="w-full"
+                @update:model-value="(v) => (customData[field.key] = v ?? null)"
+              />
+              <InputText
+                v-else
+                :model-value="(customData[field.key] as string | null) ?? ''"
+                class="w-full"
+                @update:model-value="(v) => (customData[field.key] = v ?? null)"
+              />
             </div>
           </div>
         </div>

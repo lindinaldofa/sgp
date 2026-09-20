@@ -3,7 +3,7 @@ import { ref, onMounted, reactive } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import api from '../../utils/axios'
-import type { Contact, InteractionLog, ServiceRequest } from '../../types'
+import type { Contact, InteractionLog, ServiceRequest, CustomField } from '../../types'
 
 const route = useRoute()
 const router = useRouter()
@@ -13,6 +13,30 @@ const contact = ref<Contact | null>(null)
 const interactions = ref<InteractionLog[]>([])
 const loading = ref(true)
 const loadingInteractions = ref(false)
+
+const customFields = ref<CustomField[]>([])
+
+async function fetchCustomFields() {
+  try {
+    const { data } = await api.get<{ data: CustomField[] }>('/api/v1/custom-fields')
+    customFields.value = data.data.filter((f) => f.isActive)
+  } catch {
+    // silent — custom fields section just won't show anything extra
+  }
+}
+
+function customFieldDisplayValue(field: CustomField): string {
+  const value = contact.value?.customData?.[field.key]
+  if (value === null || value === undefined || value === '') return '—'
+  if (field.type === 'checkbox') return value ? 'Sim' : 'Não'
+  if (field.type === 'select') {
+    return field.options.find((o) => o.value === value)?.label ?? String(value)
+  }
+  if (field.type === 'date') {
+    return new Date(`${value}T00:00:00`).toLocaleDateString('pt-BR')
+  }
+  return String(value)
+}
 
 const typeTags: Record<string, string> = {
   voter: 'Eleitor',
@@ -197,6 +221,7 @@ onMounted(() => {
   void fetchContact()
   void fetchInteractions()
   void fetchServiceRequests()
+  void fetchCustomFields()
 })
 </script>
 
@@ -358,6 +383,19 @@ onMounted(() => {
             <div>
               <p class="text-xs text-surface-400 uppercase tracking-wide mb-1">Seção eleitoral</p>
               <p class="text-surface-800">{{ contact.electoralSection || '—' }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Custom Fields -->
+        <div v-if="customFields.length" class="p-card p-5">
+          <h2 class="font-semibold text-surface-700 mb-4 pb-2 border-b border-surface-200">
+            Campos personalizados
+          </h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div v-for="field in customFields" :key="field.key">
+              <p class="text-xs text-surface-400 uppercase tracking-wide mb-1">{{ field.label }}</p>
+              <p class="text-surface-800 whitespace-pre-wrap">{{ customFieldDisplayValue(field) }}</p>
             </div>
           </div>
         </div>

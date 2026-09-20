@@ -53,6 +53,7 @@ class Contact extends Model
         'lgpd_consent',
         'lgpd_consent_at',
         'unsubscribed_at',
+        'custom_data',
         'created_by',
     ];
 
@@ -66,6 +67,7 @@ class Contact extends Model
             'lgpd_consent' => 'boolean',
             'lgpd_consent_at' => 'datetime',
             'unsubscribed_at' => 'datetime',
+            'custom_data' => 'array',
             'birth_date' => 'date',
             'latitude' => 'decimal:8',
             'longitude' => 'decimal:8',

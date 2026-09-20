@@ -12,6 +12,7 @@ use App\Http\Controllers\ContactController;
 use App\Http\Controllers\ContactExportController;
 use App\Http\Controllers\ContactImportController;
 use App\Http\Controllers\ContactInteractionController;
+use App\Http\Controllers\CustomFieldController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\DocumentFolderController;
@@ -89,6 +90,7 @@ Route::middleware(['auth:sanctum', 'tenant.active'])->prefix('v1')->group(functi
     Route::prefix('contacts')->group(function () {
         Route::get('export', [ContactExportController::class, 'index']);
         Route::post('import', [ContactImportController::class, 'store']);
+        Route::post('import/{id}/map', [ContactImportController::class, 'map']);
         Route::get('import/{id}', [ContactImportController::class, 'show']);
         Route::get('/', [ContactController::class, 'index']);
         Route::post('/', [ContactController::class, 'store']);
@@ -105,6 +107,9 @@ Route::middleware(['auth:sanctum', 'tenant.active'])->prefix('v1')->group(functi
 
     // Tags
     Route::apiResource('tags', TagController::class)->except(['show']);
+
+    // Campos personalizados
+    Route::apiResource('custom-fields', CustomFieldController::class)->except(['show']);
 
     // Fontes de integração (apps externos que criam contatos)
     Route::prefix('integration-sources')->group(function () {

@@ -18,7 +18,7 @@ class ContactController extends Controller
     {
         $perPage = min((int) $request->input('per_page', 30), 100);
 
-        $query = Contact::query()->with('tags');
+        $query = Contact::query()->with(['tags', 'leader:id,name', 'createdBy:id,name']);
 
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
@@ -76,7 +76,15 @@ class ContactController extends Controller
 
     public function store(StoreContactRequest $request): JsonResponse
     {
-        $contact = Contact::create($request->validated());
+        $data = $request->validated();
+        $tagIds = $data['tag_ids'] ?? null;
+        unset($data['tag_ids']);
+
+        $contact = Contact::create($data);
+
+        if ($tagIds !== null) {
+            $contact->tags()->sync($tagIds);
+        }
 
         return (new ContactResource($contact->load('tags')))->response()->setStatusCode(201);
     }
@@ -91,7 +99,16 @@ class ContactController extends Controller
     public function update(UpdateContactRequest $request, string $ulid): JsonResponse
     {
         $contact = Contact::where('ulid', $ulid)->firstOrFail();
-        $contact->update($request->validated());
+
+        $data = $request->validated();
+        $tagIds = $data['tag_ids'] ?? null;
+        unset($data['tag_ids']);
+
+        $contact->update($data);
+
+        if ($tagIds !== null) {
+            $contact->tags()->sync($tagIds);
+        }
 
         return (new ContactResource($contact->load('tags')))->response();
     }

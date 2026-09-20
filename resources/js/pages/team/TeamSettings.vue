@@ -1,14 +1,18 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useToast } from 'primevue/usetoast'
 import { useAuthStore } from '../../stores/useAuthStore'
 import api from '../../utils/axios'
 import CommunicationSettings from './CommunicationSettings.vue'
 import IntegrationSources from './IntegrationSources.vue'
 import Automations from './Automations.vue'
+import TagsManagement from './TagsManagement.vue'
+import CustomFields from './CustomFields.vue'
+import type { CustomField } from '../../types'
+import { DEFAULT_CONTACT_COLUMNS, buildAvailableColumns } from '../../utils/contactColumns'
 
 const activeTab = ref(0)
-const tabs = ['Organização', 'Comunicação', 'Integrações', 'Automações']
+const tabs = ['Organização', 'Comunicação', 'Integrações', 'Automações', 'Tags', 'Campos personalizados']
 
 interface TenantSettings {
   name: string
@@ -24,6 +28,7 @@ interface TenantSettings {
   address: string | null
   city: string | null
   state: string | null
+  contacts_list_columns?: string[]
 }
 
 const toast = useToast()
@@ -44,6 +49,32 @@ const form = ref({
   city: '',
   state: '',
 })
+
+const customFields    = ref<CustomField[]>([])
+const contactColumns  = ref<string[]>([...DEFAULT_CONTACT_COLUMNS])
+const savingColumns   = ref(false)
+const availableColumns = computed(() => buildAvailableColumns(customFields.value))
+
+async function fetchCustomFields() {
+  try {
+    const { data } = await api.get<{ data: CustomField[] }>('/api/v1/custom-fields')
+    customFields.value = data.data
+  } catch {
+    // silencioso — não bloqueia o carregamento das demais configurações
+  }
+}
+
+async function saveColumns() {
+  savingColumns.value = true
+  try {
+    await api.put('/api/v1/team/settings', { contacts_list_columns: contactColumns.value })
+    toast.add({ severity: 'success', summary: 'Sucesso', detail: 'Colunas salvas', life: 3000 })
+  } catch (e) {
+    toast.add({ severity: 'error', summary: 'Erro', detail: (e as { response?: { data?: { message?: string } } }).response?.data?.message || 'Falha ao salvar colunas', life: 3000 })
+  } finally {
+    savingColumns.value = false
+  }
+}
 
 const planLabels: Record<string, string> = {
   essential: 'Essential',
@@ -70,6 +101,9 @@ async function fetchSettings() {
       city: data.city ?? '',
       state: data.state ?? '',
     }
+    contactColumns.value = data.contacts_list_columns?.length
+      ? data.contacts_list_columns
+      : [...DEFAULT_CONTACT_COLUMNS]
   } catch {
     toast.add({ severity: 'error', summary: 'Erro', detail: 'Falha ao carregar configurações', life: 3000 })
   } finally {
@@ -139,7 +173,10 @@ async function deleteLogo() {
   }
 }
 
-onMounted(fetchSettings)
+onMounted(() => {
+  void fetchSettings()
+  void fetchCustomFields()
+})
 </script>
 
 <template>
@@ -177,6 +214,16 @@ onMounted(fetchSettings)
     <!-- Automações -->
     <div v-else-if="activeTab === 3" class="max-w-3xl">
       <Automations />
+    </div>
+
+    <!-- Tags -->
+    <div v-else-if="activeTab === 4" class="max-w-3xl">
+      <TagsManagement />
+    </div>
+
+    <!-- Campos personalizados -->
+    <div v-else-if="activeTab === 5" class="max-w-3xl">
+      <CustomFields />
     </div>
 
     <!-- Organização -->
@@ -320,6 +367,39 @@ onMounted(fetchSettings)
           <label class="text-sm font-medium text-surface-700">Slug</label>
           <InputText :value="settings.slug" readonly class="w-full bg-surface-50 text-surface-500" />
           <p class="text-xs text-surface-400">O slug é gerado automaticamente e não pode ser alterado.</p>
+        </div>
+      </div>
+
+      <!-- Colunas da lista de contatos -->
+      <div class="p-card p-5">
+        <h2 class="font-semibold text-surface-700 mb-1 pb-2 border-b border-surface-200">
+          Colunas da lista de contatos
+        </h2>
+        <p class="text-sm text-surface-500 mb-4 mt-2">
+          Escolha quais colunas exibir na tela de Contatos. As colunas "Nome" e "Ações" são sempre exibidas.
+          A ordem de seleção define a ordem das colunas na tabela.
+        </p>
+        <div class="flex flex-col gap-2">
+          <MultiSelect
+            v-model="contactColumns"
+            :options="availableColumns"
+            option-label="label"
+            option-value="key"
+            placeholder="Selecione as colunas"
+            filter
+            display="chip"
+            class="w-full"
+          />
+          <div class="flex justify-end mt-2">
+            <Button
+              label="Salvar colunas"
+              icon="pi pi-check"
+              size="small"
+              :loading="savingColumns"
+              :disabled="!authStore.isAdmin"
+              @click="saveColumns"
+            />
+          </div>
         </div>
       </div>
 

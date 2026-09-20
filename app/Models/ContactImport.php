@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ContactImport extends Model
 {
@@ -14,7 +15,10 @@ class ContactImport extends Model
     protected $fillable = [
         'tenant_id',
         'user_id',
+        'tag_id',
         'filename',
+        'headers',
+        'column_mapping',
         'status',
         'total_rows',
         'processed_rows',
@@ -28,6 +32,9 @@ class ContactImport extends Model
     {
         return [
             'tenant_id' => 'integer',
+            'tag_id' => 'integer',
+            'headers' => 'array',
+            'column_mapping' => 'array',
             'error_log' => 'array',
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
@@ -35,5 +42,11 @@ class ContactImport extends Model
             'processed_rows' => 'integer',
             'error_rows' => 'integer',
         ];
+    }
+
+    /** @return BelongsTo<Tag, $this> */
+    public function tag(): BelongsTo
+    {
+        return $this->belongsTo(Tag::class);
     }
 }

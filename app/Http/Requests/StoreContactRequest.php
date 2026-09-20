@@ -39,11 +39,11 @@ class StoreContactRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'email' => ['nullable', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:30'],
-            'whatsapp'  => ['nullable', 'string', 'max:30'],
+            'whatsapp' => ['nullable', 'string', 'max:30'],
             'instagram' => ['nullable', 'string', 'max:100'],
-            'tiktok'    => ['nullable', 'string', 'max:100'],
-            'facebook'  => ['nullable', 'string', 'max:150'],
-            'twitter'   => ['nullable', 'string', 'max:100'],
+            'tiktok' => ['nullable', 'string', 'max:100'],
+            'facebook' => ['nullable', 'string', 'max:150'],
+            'twitter' => ['nullable', 'string', 'max:100'],
             'cpf' => ['nullable', 'string', 'max:14'],
             'birth_date' => ['nullable', 'date'],
             'gender' => ['nullable', 'string'],
@@ -63,6 +63,9 @@ class StoreContactRequest extends FormRequest
             'electoral_section' => ['nullable', 'string', 'max:10'],
             'leader_id' => ['nullable', 'integer', 'exists:contacts,id'],
             'lgpd_consent' => ['nullable', 'boolean'],
+            'custom_data' => ['nullable', 'array'],
+            'tag_ids' => ['nullable', 'array'],
+            'tag_ids.*' => ['integer', 'exists:tags,id'],
         ];
     }
 }

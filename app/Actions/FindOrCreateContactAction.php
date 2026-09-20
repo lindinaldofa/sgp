@@ -8,6 +8,8 @@ use App\Enums\ContactType;
 use App\Jobs\SyncContactSegmentsJob;
 use App\Models\Contact;
 use App\Support\ContactSegmentSyncSuppressor;
+use Carbon\Carbon;
+use Illuminate\Support\Str;
 
 /**
  * Shared find-or-create-by-email/CPF/phone logic used by every "contacts flow
@@ -17,6 +19,32 @@ use App\Support\ContactSegmentSyncSuppressor;
  */
 final class FindOrCreateContactAction
 {
+    /**
+     * Matches the `contacts` table's column lengths — free-text sources (CSV
+     * import especially) routinely exceed these and would otherwise crash
+     * the whole row with a raw SQL "data too long" error.
+     */
+    private const FIELD_MAX_LENGTHS = [
+        'cpf' => 11,
+        'zip_code' => 8,
+        'neighborhood' => 100,
+        'city' => 100,
+        'state' => 2,
+    ];
+
+    private const STATE_NAME_TO_UF = [
+        'ACRE' => 'AC', 'ALAGOAS' => 'AL', 'AMAPA' => 'AP', 'AMAZONAS' => 'AM',
+        'BAHIA' => 'BA', 'CEARA' => 'CE', 'DISTRITO FEDERAL' => 'DF',
+        'ESPIRITO SANTO' => 'ES', 'GOIAS' => 'GO', 'MARANHAO' => 'MA',
+        'MATO GROSSO' => 'MT', 'MATO GROSSO DO SUL' => 'MS', 'MINAS GERAIS' => 'MG',
+        'PARA' => 'PA', 'PARAIBA' => 'PB', 'PARANA' => 'PR', 'PERNAMBUCO' => 'PE',
+        'PIAUI' => 'PI', 'RIO DE JANEIRO' => 'RJ', 'RIO GRANDE DO NORTE' => 'RN',
+        'RIO GRANDE DO SUL' => 'RS', 'RONDONIA' => 'RO', 'RORAIMA' => 'RR',
+        'SANTA CATARINA' => 'SC', 'SAO PAULO' => 'SP', 'SERGIPE' => 'SE', 'TOCANTINS' => 'TO',
+    ];
+
+    private const BIRTH_DATE_FORMATS = ['d/m/Y', 'Y-m-d', 'd-m-Y', 'd.m.Y'];
+
     /**
      * @param array<string, mixed> $nativeData flat contact column => value (name, email, phone, ...)
      * @param array<string, mixed> $customData custom_fields.key => value
@@ -58,10 +86,27 @@ final class FindOrCreateContactAction
         if (isset($fillable['zip_code'])) {
             $fillable['zip_code'] = preg_replace('/\D/', '', (string) $fillable['zip_code']) ?? '';
         }
+        if (isset($fillable['state'])) {
+            $fillable['state'] = self::normalizeState((string) $fillable['state']);
+        }
+        if (array_key_exists('birth_date', $fillable)) {
+            $parsedBirthDate = self::parseBirthDate($fillable['birth_date']);
+            if ($parsedBirthDate) {
+                $fillable['birth_date'] = $parsedBirthDate;
+            } else {
+                unset($fillable['birth_date']);
+            }
+        }
         if (array_key_exists('lgpd_consent', $fillable)) {
             $fillable['lgpd_consent'] = filter_var($fillable['lgpd_consent'], FILTER_VALIDATE_BOOLEAN);
             if ($fillable['lgpd_consent']) {
                 $fillable['lgpd_consent_at'] = now();
+            }
+        }
+
+        foreach (self::FIELD_MAX_LENGTHS as $field => $maxLength) {
+            if (isset($fillable[$field]) && is_string($fillable[$field])) {
+                $fillable[$field] = mb_substr($fillable[$field], 0, $maxLength);
             }
         }
 
@@ -91,6 +136,48 @@ final class FindOrCreateContactAction
         }
 
         return $contact;
+    }
+
+    /**
+     * Accepts either a UF abbreviation ("AL") or a full state name
+     * ("Alagoas", accents/case-insensitive, as free-text CSV exports often
+     * have it) and returns the 2-letter UF. Falls back to truncating
+     * whatever was given so an unrecognized value never breaks the insert.
+     */
+    private static function normalizeState(string $value): string
+    {
+        $normalized = strtoupper(trim(Str::ascii($value)));
+
+        return self::STATE_NAME_TO_UF[$normalized] ?? mb_substr($normalized, 0, 2);
+    }
+
+    /**
+     * CSV exports (and some external sources) send birth dates as free text
+     * in whatever format the origin system used — most commonly Brazilian
+     * d/m/Y, which Carbon's default parser rejects outright. Tries a short
+     * list of formats and gives up silently (returns null) rather than
+     * throwing, so one unparseable date doesn't fail the entire row.
+     */
+    private static function parseBirthDate(mixed $value): ?string
+    {
+        if (! is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        $value = trim($value);
+
+        foreach (self::BIRTH_DATE_FORMATS as $format) {
+            try {
+                $date = Carbon::createFromFormat($format, $value);
+                if ($date !== false) {
+                    return $date->format('Y-m-d');
+                }
+            } catch (\Throwable) {
+                continue;
+            }
+        }
+
+        return null;
     }
 
     /**

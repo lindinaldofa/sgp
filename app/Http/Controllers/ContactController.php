@@ -9,6 +9,7 @@ use App\Http\Requests\UpdateContactRequest;
 use App\Http\Resources\ContactResource;
 use App\Jobs\SyncContactSegmentsJob;
 use App\Models\Contact;
+use App\Models\CustomField;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -50,6 +51,14 @@ class ContactController extends Controller
             $query->where('city', 'like', "%{$city}%");
         }
 
+        if ($neighborhood = $request->input('neighborhood')) {
+            $query->where('neighborhood', 'like', "%{$neighborhood}%");
+        }
+
+        if ($gender = $request->input('gender')) {
+            $query->where('gender', $gender);
+        }
+
         if ($state = $request->input('state')) {
             $query->where('state', $state);
         }
@@ -70,6 +79,25 @@ class ContactController extends Controller
         if ($tagIds = $request->input('tag_ids')) {
             $tagIds = is_array($tagIds) ? $tagIds : [$tagIds];
             $query->whereHas('tags', fn ($q) => $q->whereIn('tags.id', $tagIds));
+        }
+
+        if (is_array($customFilters = $request->input('custom'))) {
+            $customFieldTypes = CustomField::where('tenant_id', $this->typedUser($request)->tenant_id)
+                ->pluck('type', 'key');
+
+            foreach ($customFilters as $key => $value) {
+                if ($value === null || $value === '') {
+                    continue;
+                }
+
+                $column = 'custom_data->'.$key;
+
+                if (($customFieldTypes[$key] ?? null)?->value === 'checkbox') {
+                    $query->where($column, filter_var($value, FILTER_VALIDATE_BOOLEAN));
+                } else {
+                    $query->where($column, 'like', '%'.$value.'%');
+                }
+            }
         }
 
         return ContactResource::collection($query->paginate($perPage));

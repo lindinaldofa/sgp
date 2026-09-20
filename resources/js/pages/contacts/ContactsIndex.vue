@@ -27,6 +27,22 @@ const currentPage = ref(1)
 const customFields = ref<CustomField[]>([])
 const columnKeys = ref<string[]>([...DEFAULT_CONTACT_COLUMNS])
 
+const showMoreFilters = ref(false)
+const selectedCity = ref('')
+const selectedNeighborhood = ref('')
+const selectedGender = ref<string | null>(null)
+const customFilterValues = ref<Record<string, string>>({})
+
+const genderOptions = [
+  { label: 'Todos', value: null },
+  { label: 'Masculino', value: 'M' },
+  { label: 'Feminino', value: 'F' },
+  { label: 'Não Binário', value: 'NB' },
+  { label: 'Não Informado', value: 'NI' },
+]
+
+const activeCustomFields = computed(() => customFields.value.filter((f) => f.isActive))
+
 const selectedContacts = ref<Contact[]>([])
 const availableSegments = ref<Segment[]>([])
 const availableCampaigns = ref<Campaign[]>([])
@@ -77,11 +93,19 @@ const engagementSeverity: Record<number, string> = {
 async function fetchContacts() {
   loading.value = true
   try {
+    const custom = Object.fromEntries(
+      Object.entries(customFilterValues.value).filter(([, v]) => v !== '' && v !== null && v !== undefined)
+    )
+
     const { data } = await api.get<PaginatedResponse<Contact>>('/api/v1/contacts', {
       params: {
         search: search.value || undefined,
         type: selectedType.value || undefined,
         tag_ids: selectedTagIds.value.length ? selectedTagIds.value : undefined,
+        city: selectedCity.value || undefined,
+        neighborhood: selectedNeighborhood.value || undefined,
+        gender: selectedGender.value || undefined,
+        custom: Object.keys(custom).length ? custom : undefined,
         page: currentPage.value,
       },
     })
@@ -217,10 +241,21 @@ onMounted(() => {
   void fetchCampaigns()
 })
 
-watch([search, selectedType, selectedTagIds], () => {
-  currentPage.value = 1
-  void fetchContacts()
-})
+watch(
+  [search, selectedType, selectedTagIds, selectedCity, selectedNeighborhood, selectedGender, customFilterValues],
+  () => {
+    currentPage.value = 1
+    void fetchContacts()
+  },
+  { deep: true }
+)
+
+function clearMoreFilters() {
+  selectedCity.value = ''
+  selectedNeighborhood.value = ''
+  selectedGender.value = null
+  customFilterValues.value = {}
+}
 </script>
 
 <template>
@@ -277,6 +312,85 @@ watch([search, selectedType, selectedTagIds], () => {
           placeholder="Filtrar por tag"
           filter
           class="w-56"
+        />
+
+        <Button
+          :label="showMoreFilters ? 'Menos filtros' : 'Mais filtros'"
+          :icon="showMoreFilters ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"
+          severity="secondary"
+          text
+          size="small"
+          @click="showMoreFilters = !showMoreFilters"
+        />
+      </div>
+
+      <!-- More filters -->
+      <div
+        v-if="showMoreFilters"
+        class="p-4 border-b border-surface-200 flex flex-wrap items-end gap-3 bg-surface-50"
+      >
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-medium text-surface-500">Cidade</label>
+          <InputText v-model="selectedCity" placeholder="Cidade" class="w-44" />
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-medium text-surface-500">Bairro</label>
+          <InputText v-model="selectedNeighborhood" placeholder="Bairro" class="w-44" />
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-medium text-surface-500">Gênero</label>
+          <Select
+            v-model="selectedGender"
+            :options="genderOptions"
+            option-label="label"
+            option-value="value"
+            class="w-44"
+          />
+        </div>
+
+        <div v-for="field in activeCustomFields" :key="field.id" class="flex flex-col gap-1">
+          <label class="text-xs font-medium text-surface-500">{{ field.label }}</label>
+
+          <Select
+            v-if="field.type === 'select'"
+            :model-value="customFilterValues[field.key] ?? null"
+            :options="field.options"
+            option-label="label"
+            option-value="value"
+            show-clear
+            placeholder="Todos"
+            class="w-44"
+            @update:model-value="(v: string | null) => (customFilterValues[field.key] = v ?? '')"
+          />
+          <Select
+            v-else-if="field.type === 'checkbox'"
+            :model-value="customFilterValues[field.key] ?? null"
+            :options="[{ label: 'Sim', value: '1' }, { label: 'Não', value: '0' }]"
+            option-label="label"
+            option-value="value"
+            show-clear
+            placeholder="Todos"
+            class="w-44"
+            @update:model-value="(v: string | null) => (customFilterValues[field.key] = v ?? '')"
+          />
+          <InputText
+            v-else
+            :model-value="customFilterValues[field.key] ?? ''"
+            :placeholder="field.label"
+            class="w-44"
+            @update:model-value="(v: string | undefined) => (customFilterValues[field.key] = v ?? '')"
+          />
+        </div>
+
+        <Button
+          label="Limpar filtros"
+          icon="pi pi-times"
+          severity="secondary"
+          text
+          size="small"
+          @click="clearMoreFilters"
         />
       </div>
 

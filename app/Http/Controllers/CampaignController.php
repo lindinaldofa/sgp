@@ -83,8 +83,6 @@ class CampaignController extends Controller
     {
         $campaign = Campaign::where('ulid', $ulid)->firstOrFail();
 
-        abort_if($campaign->status !== CampaignStatus::Draft, 422, 'Only draft campaigns can be updated.');
-
         $data = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'channel' => ['sometimes', 'required', Rule::enum(CampaignChannel::class)],
@@ -95,6 +93,20 @@ class CampaignController extends Controller
             'whatsapp_session_id' => ['nullable', 'string', 'exists:whatsapp_sessions,ulid'],
             'segment_filters' => ['nullable', 'array'],
         ]);
+
+        // Content, audience and (for WhatsApp) the sending session stay editable
+        // for the campaign's whole lifetime — recipients keep trickling in via
+        // automations/manual adds even after the first send, and the OpenWA
+        // session in use may need to change mid-flight. The channel itself is
+        // the one thing that can't change once the campaign left Draft: it
+        // would orphan whatever's already been sent/tracked under the old one.
+        abort_if(
+            $campaign->status !== CampaignStatus::Draft
+                && array_key_exists('channel', $data)
+                && $data['channel'] !== $campaign->channel->value,
+            422,
+            'O canal de uma campanha não pode ser alterado após sair do rascunho.',
+        );
 
         $effectiveChannel = CampaignChannel::from($data['channel'] ?? $campaign->channel->value);
         $hasSession = array_key_exists('whatsapp_session_id', $data)
@@ -109,7 +121,7 @@ class CampaignController extends Controller
         $data = $this->resolveWhatsappSessionId($data);
         $campaign->update($data);
 
-        return response()->json(new CampaignResource($campaign->fresh()));
+        return (new CampaignResource($campaign->fresh()))->response();
     }
 
     /**
@@ -148,8 +160,6 @@ class CampaignController extends Controller
     public function uploadMedia(Request $request, string $ulid): JsonResponse
     {
         $campaign = Campaign::where('ulid', $ulid)->firstOrFail();
-
-        abort_if($campaign->status !== CampaignStatus::Draft, 422, 'Only draft campaigns can be edited.');
 
         $request->validate([
             'media' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,mp4,3gp,mov,mp3,ogg,m4a,pdf,doc,docx,xls,xlsx', 'max:51200'],

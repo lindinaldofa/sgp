@@ -260,7 +260,6 @@ watch([selectedStatus, selectedChannel], () => {
                 @click="router.push(`/campaigns/${campaign.id}`)"
               />
               <Button
-                v-if="campaign.status === 'draft'"
                 icon="pi pi-pencil"
                 size="small" text rounded severity="secondary"
                 v-tooltip.top="'Editar'"

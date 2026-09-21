@@ -12,6 +12,10 @@ const toast = useToast()
 
 const editUlid = computed(() => (typeof route.params.ulid === 'string' ? route.params.ulid : null))
 const isEditMode = computed(() => editUlid.value !== null)
+const loadedCampaignStatus = ref<string | null>(null)
+// O canal não pode mais ser trocado (e agendamento não faz sentido) depois que
+// a campanha sai do rascunho — o backend já bloqueia isso, aqui só refletimos na UI.
+const isDraftOrNew = computed(() => !isEditMode.value || loadedCampaignStatus.value === 'draft')
 
 const currentStep = ref(0)
 const loading = ref(false)
@@ -139,6 +143,7 @@ async function fetchCampaign(ulid: string) {
     const { data } = await api.get<{ data: Campaign }>(`/api/v1/campaigns/${ulid}`)
     const campaign = data.data
 
+    loadedCampaignStatus.value = campaign.status
     step1.value = { name: campaign.name, channel: campaign.channel, whatsapp_session_id: campaign.whatsappSessionId }
     step2.value = {
       subject: campaign.subject ?? '',
@@ -253,7 +258,7 @@ async function handleSubmit() {
       await uploadMedia(campaignId)
     }
 
-    if (step3.value.scheduled_at) {
+    if (isDraftOrNew.value && step3.value.scheduled_at) {
       await api.post(`/api/v1/campaigns/${campaignId}/schedule`, {
         scheduled_at: localInputToIso(step3.value.scheduled_at),
       })
@@ -283,7 +288,13 @@ async function handleSubmit() {
       <Button icon="pi pi-arrow-left" text rounded @click="router.push('/campaigns')" />
       <div>
         <h1 class="text-2xl font-bold text-surface-800">{{ isEditMode ? 'Editar Campanha' : 'Nova Campanha' }}</h1>
-        <p class="text-sm text-surface-500">Crie e configure sua campanha de comunicação</p>
+        <p class="text-sm text-surface-500">
+          <template v-if="isEditMode && !isDraftOrNew">
+            Esta campanha já foi enviada — o conteúdo, a sessão e a audiência ainda podem ser ajustados
+            (útil para novos destinatários que forem adicionados depois).
+          </template>
+          <template v-else>Crie e configure sua campanha de comunicação</template>
+        </p>
       </div>
     </div>
 
@@ -326,17 +337,21 @@ async function handleSubmit() {
       <div v-if="currentStep === 0" class="flex flex-col gap-5">
         <div class="p-card p-5">
           <h2 class="font-semibold text-surface-700 mb-4">Escolha o canal</h2>
+          <p v-if="!isDraftOrNew" class="text-xs text-surface-500 -mt-2 mb-3">
+            <i class="pi pi-lock mr-1" />O canal não pode ser alterado depois que a campanha sai do rascunho.
+          </p>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div
               v-for="opt in channelOptions"
               :key="opt.value"
-              class="border-2 rounded-xl p-4 cursor-pointer transition-all"
-              :class="
+              class="border-2 rounded-xl p-4 transition-all"
+              :class="[
                 step1.channel === opt.value
                   ? 'border-primary bg-primary-50'
-                  : 'border-surface-200 hover:border-surface-300'
-              "
-              @click="step1.channel = opt.value as any"
+                  : 'border-surface-200 hover:border-surface-300',
+                isDraftOrNew ? 'cursor-pointer' : 'cursor-not-allowed opacity-60',
+              ]"
+              @click="isDraftOrNew && (step1.channel = opt.value as any)"
             >
               <i :class="[opt.icon, 'text-2xl mb-2 block', step1.channel === opt.value ? 'text-primary' : 'text-surface-500']" />
               <p class="font-medium text-surface-800">{{ opt.label }}</p>
@@ -555,7 +570,7 @@ async function handleSubmit() {
           </div>
         </div>
 
-        <div class="p-card p-5">
+        <div v-if="isDraftOrNew" class="p-card p-5">
           <h2 class="font-semibold text-surface-700 mb-4">Agendamento</h2>
           <div class="flex flex-col gap-3">
             <p class="text-sm text-surface-500">

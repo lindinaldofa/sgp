@@ -208,7 +208,6 @@ onMounted(async () => {
         </div>
         <div class="flex items-center gap-2">
           <Button
-            v-if="campaign.status === 'draft'"
             label="Editar"
             icon="pi pi-pencil"
             severity="secondary"

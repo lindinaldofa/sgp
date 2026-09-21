@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import api from '../utils/axios'
-import type { Tag as ContactTag, Campaign, Segment, WhatsAppSession } from '../types'
+import type { Tag as ContactTag, Campaign, Segment, WhatsAppSession, CustomField } from '../types'
 import WhatsAppTextToolbar from '../components/common/WhatsAppTextToolbar.vue'
 
 const router = useRouter()
@@ -24,6 +24,13 @@ const loadingCampaign = ref(false)
 const availableTags = ref<ContactTag[]>([])
 const availableSegments = ref<Segment[]>([])
 const availableSessions = ref<WhatsAppSession[]>([])
+const customFields = ref<CustomField[]>([])
+
+const customFieldVariables = computed(() =>
+  customFields.value
+    .filter((f) => f.isActive)
+    .map((f) => ({ label: f.label, token: `{{contact.custom.${f.key}}}` }))
+)
 
 const bodyTextareaEl = ref<HTMLTextAreaElement | null>(null)
 function setBodyTextareaRef(el: unknown) {
@@ -137,6 +144,15 @@ async function fetchSessions() {
   }
 }
 
+async function fetchCustomFields() {
+  try {
+    const { data } = await api.get<{ data: CustomField[] }>('/api/v1/custom-fields')
+    customFields.value = data.data
+  } catch {
+    // silencioso — a lista de variáveis simplesmente não mostrará campos personalizados
+  }
+}
+
 async function fetchCampaign(ulid: string) {
   loadingCampaign.value = true
   try {
@@ -169,7 +185,7 @@ async function fetchCampaign(ulid: string) {
 }
 
 onMounted(async () => {
-  await Promise.all([fetchTags(), fetchSegments(), fetchSessions()])
+  await Promise.all([fetchTags(), fetchSegments(), fetchSessions(), fetchCustomFields()])
   if (editUlid.value) await fetchCampaign(editUlid.value)
 })
 
@@ -421,6 +437,9 @@ async function handleSubmit() {
             <p class="text-xs text-surface-400">
               Variáveis disponíveis: <code>&#123;&#123;contact.name&#125;&#125;</code>, <code>&#123;&#123;contact.first_name&#125;&#125;</code>,
               <code>&#123;&#123;contact.city&#125;&#125;</code>, <code>&#123;&#123;tenant.name&#125;&#125;</code>
+              <template v-for="v in customFieldVariables" :key="v.token">
+                , <code>{{ v.token }}</code> ({{ v.label }})
+              </template>
             </p>
           </div>
 
@@ -494,6 +513,9 @@ async function handleSubmit() {
             <p class="text-xs text-surface-400">
               Variáveis disponíveis: <code>&#123;&#123;contact.name&#125;&#125;</code>, <code>&#123;&#123;contact.first_name&#125;&#125;</code>,
               <code>&#123;&#123;contact.city&#125;&#125;</code>
+              <template v-for="v in customFieldVariables" :key="v.token">
+                , <code>{{ v.token }}</code> ({{ v.label }})
+              </template>
             </p>
           </div>
 
